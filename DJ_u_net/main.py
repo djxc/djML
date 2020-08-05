@@ -3,12 +3,12 @@
 @author djxc
 @date 2019-12-08
 """
-import cv2
 import torch
 import argparse
 from PIL import Image
 from unet import Unet
 from torch import nn, optim
+
 from dataset import LiverDataset
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
@@ -25,6 +25,7 @@ x_transforms = transforms.Compose([
 ])
 # mask只需要转换为tensor
 y_transforms = transforms.ToTensor()
+
 
 def train_model(model, criterion, optimizer, dataload, num_epochs=20):
     '''模型训练
@@ -50,10 +51,13 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=20):
             loss.backward()                     # 后向传播
             optimizer.step()                    # 参数优化
             epoch_loss += loss.item()
-            print("%d/%d,train_loss:%0.3f" % (step, (dt_size - 1) // dataload.batch_size + 1, loss.item()))
-        print("epoch %d loss:%0.3f" % (epoch, epoch_loss/step))    
-    torch.save(model.state_dict(), model_path + 'weightsPed_%d.pth' % epoch)        # 保存模型参数，使用时直接加载保存的path文件
+            print("%d/%d,train_loss:%0.3f" %
+                  (step, (dt_size - 1) // dataload.batch_size + 1, loss.item()))
+        print("epoch %d loss:%0.3f" % (epoch, epoch_loss/step))
+    torch.save(model.state_dict(), model_path + 'weights_unet_car_%d.pth' %
+               epoch)        # 保存模型参数，使用时直接加载保存的path文件
     return model
+
 
 def train(args):
     """训练模型  
@@ -65,22 +69,26 @@ def train(args):
     batch_size = args.batch_size                    # 每次计算的batch大小
     criterion = nn.BCEWithLogitsLoss()              # 损失函数
     optimizer = optim.Adam(model.parameters())      # 优化函数
-    
-    liver_dataset = LiverDataset(data_path + "data/peddata",
-        transform=x_transforms,target_transform=y_transforms)
+
+    liver_dataset = LiverDataset(data_path + "data/streetCarMask",
+                                 transform=x_transforms, target_transform=y_transforms)
     dataloaders = DataLoader(liver_dataset,
-        batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
-        
+                             batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
+
     train_model(model, criterion, optimizer, dataloaders)
 
+
 def test(args):
+    import matplotlib.pyplot as plt
     """测试模型，显示模型的输出结果"""
     model = Unet(3, 1)
-    model.load_state_dict(torch.load(args.ckpt, map_location='cpu'))        # 加载训练数据权重
-    liver_dataset = LiverDataset(data_path + "data/pedtest", transform=x_transforms,target_transform=y_transforms)
+    model.load_state_dict(torch.load(model_path +
+                                     args.ckpt, map_location='cpu'))        # 加载训练数据权重
+    liver_dataset = LiverDataset(
+        data_path + "data/test", transform=x_transforms, target_transform=y_transforms)
     dataloaders = DataLoader(liver_dataset, batch_size=1)
     model.eval()
-    import matplotlib.pyplot as plt
+
     plt.ion()
     with torch.no_grad():
         dj = 0
@@ -106,18 +114,21 @@ def test(args):
 
 
 if __name__ == '__main__':
-    #参数解析
-    parse=argparse.ArgumentParser()
+    '''参数解析
+        1、首先创建参数解析对象,可用通过对象获取具体的参数
+        2、必填参数可以直接输入，可选参数需要`--××`这种格式，在命令行中也是这样设置
+    '''
     parse = argparse.ArgumentParser()
+    parse.description = "设置训练还是推理"
     parse.add_argument("action", type=str, help="train or test")
-    parse.add_argument("--batch_size", type=int, default=1)
-    parse.add_argument("--ckpt", type=str, help="the path of model weight file")
+    parse.add_argument("--batch_size", type=int, default=2)
+    parse.add_argument("--ckpt", type=str,
+                       help="the path of model weight file")
     args = parse.parse_args()
-
-    if args.action=="train":
+    if args.action == "train":
         train(args)
         print('train')
     elif args.action == "test":
-        # python main.py --ckpt weight_19.pth#
+        # python main.py test --ckpt weight_19.pth#
         test(args)
-        print('test')    
+        print('test')

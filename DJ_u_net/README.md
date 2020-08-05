@@ -6,3 +6,6 @@
 	- unet.py为网络的类文件，其中构建了网络的基本结构。
 	- dataset.py为程序提供数据，数据读取、预处理、解析等等。
 * 3、UNet计算出来的图像为连续分布的图像，类似于热力图，需要设置阈值取出目标轮廓。
+* 4、标注数据的生成，需要先用labelme等标注工具，画出轮廓，然后利用opencv工具将轮廓内的赋值一个数，轮廓外的赋值一个数。
+* 5、模型运行训练，`python main.py train`会生成.pth文件，即为模型参数，下次可以再次基础上训练，或是用来识别。
+* 6、测试`python main.py test --ckpt /document/2019/python/result/weightsPed_19.pth`

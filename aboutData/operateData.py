@@ -70,21 +70,32 @@ def tif2png(path):
         im.save("%03d.png" % fileName)
         fileName = fileName + 1
 
-def roateIMG(path):
+def roateIMG(inPath, outPath):
     '''将图像进行旋转，增加数据集，生成更多可能性的样本'''
-    image = cv2.imread(path) 
-    
+    image = cv2.imread(inPath) 
     (h, w) = image.shape[:2] #10
     center = (w // 2, h // 2)  #11
     M = cv2.getRotationMatrix2D(center, -90, 1.0) #15
     rotated = cv2.warpAffine(image, M, (w, h)) #16
-    
-    M1 = cv2.getRotationMatrix2D(center, 180, 1.0) #15
-    rotated1 = cv2.warpAffine(image, M, (w, h)) #16  
+    cv2.imwrite(outPath, rotated)
+    # M1 = cv2.getRotationMatrix2D(center, 180, 1.0) #15
+    # rotated1 = cv2.warpAffine(image, M, (w, h)) #16  
 
+
+def listFile(path):
+    fileList = os.listdir(path)
+    for f in fileList:
+        file_ = os.path.join(path, f)
+        file_1 = os.path.join(path, "0" + f)
+        print(file_)
+        roateIMG(file_, file_1)
+    print("finish")
 
 if __name__ == "__main__":
-    path = './data/jsonCarStreet/'
+    # path = './data/jsonCarStreet/'
     # moveImgRename(path, './data/streetCarMark/')
     # changeIMGValue(path)
-    tif2png("./test")
+    path = "/document/2019/python/Data/data/streetCarMask/"
+    # roateIMG(path)
+    listFile(path)
+    # tif2png("./test")

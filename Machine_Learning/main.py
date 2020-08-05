@@ -5,7 +5,8 @@ from aboutData import preprocessData
 import matplotlib.pyplot as plt
 from kNN import kNN
 from aboutData import transformData
-    
+
+
 def testPerceptron(X, y):
     percep = Perceptron(15, 0.01)
 #    percep.fit(X, y)
@@ -13,6 +14,7 @@ def testPerceptron(X, y):
 #    percep.fitAdalineShuffle(X, y)
     percep.showCost()
 #    print(percep.predict(X_))
+
 
 def usingKNN():
     group, labels = kNN.createDataSet()
@@ -22,38 +24,48 @@ def usingKNN():
 
 def usingKNN1():
     tfData = transformData.TransformData()
-    datingDataMat, datingLabels = tfData.file2matrix('Data/datingTestSet2.txt')
-    print(datingDataMat)
-    
-    KNNTest(preproData(datingDataMat), datingLabels)
-    
-    fig=plt.figure()
-    ax=fig.add_subplot(111)
-    ax.scatter(datingDataMat[:,0],datingDataMat[:,1], 15.0 * np.array(datingLabels), 15.0 * np.array(datingLabels))
+    datingDataMat, datingLabels = tfData.file2matrix(
+        '/document/2019/python/Data/datingTestSet2.txt')
+    # print(datingDataMat, datingLabels)
+
+    # KNNTest(preproData(datingDataMat), datingLabels)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    # 前两个字段表示点的位置
+    ax.scatter(datingDataMat[:, 0], datingDataMat[:, 1], 15.0 *
+               np.array(datingLabels), 15.0 * np.array(datingLabels))
     plt.show()
-    
+
+
 def preproData(datingDataMat):
     od = preprocessData.OperateData()
-    normMat, ranges, minVals = od.autoNorm(datingDataMat)   
+    normMat, ranges, minVals = od.autoNorm(datingDataMat)
     return normMat
-    
-#检查分类正确率
+
+# 检查分类正确率
+
+
 def KNNTest(normMat, datingLabels):
-    hoRatio = 0.10      #hold out 10%
+    hoRatio = 0.10  # hold out 10%
     m = normMat.shape[0]
     numTestVecs = int(m*hoRatio)
     errorCount = 0.0
     for i in range(numTestVecs):
-        classifierResult = kNN.classify0(normMat[i,:], normMat[numTestVecs:m,:], datingLabels[numTestVecs:m], 4)
-        print("the classifier came back with: %d, the real answer is: %d" %(classifierResult, datingLabels[i]))
-        if (classifierResult != datingLabels[i]): errorCount += 1.0
-    print("the total error rate is: %f" %(errorCount/float(numTestVecs)))
+        classifierResult = kNN.classify0(
+            normMat[i, :], normMat[numTestVecs:m, :], datingLabels[numTestVecs:m], 4)
+        print("the classifier came back with: %d, the real answer is: %d" %
+              (classifierResult, datingLabels[i]))
+        if (classifierResult != datingLabels[i]):
+            errorCount += 1.0
+    print("the total error rate is: %f" % (errorCount/float(numTestVecs)))
     print(errorCount)
 
+
 if __name__ == "__main__":
-#    od = preprocessData.OperateData()
-#    X, y = od.getData()
-#    X_std = od.standardization(X)
-##    od.showData(X, y)
-#    testPerceptron(X_std, y)
-   usingKNN1()
+    #    od = preprocessData.OperateData()
+    #    X, y = od.getData()
+    #    X_std = od.standardization(X)
+    ##    od.showData(X, y)
+    #    testPerceptron(X_std, y)
+    usingKNN1()
