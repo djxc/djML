@@ -9,7 +9,7 @@ from PIL import Image
 from unet import Unet
 from torch import nn, optim
 
-from dataset import LiverDataset
+from dataset import DJDataset
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
@@ -70,7 +70,7 @@ def train(args):
     criterion = nn.BCEWithLogitsLoss()              # 损失函数
     optimizer = optim.Adam(model.parameters())      # 优化函数
 
-    liver_dataset = LiverDataset(data_path + "data/streetCarMask",
+    liver_dataset = DJDataset(data_path + "streetCarMask",
                                  transform=x_transforms, target_transform=y_transforms)
     dataloaders = DataLoader(liver_dataset,
                              batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
@@ -84,7 +84,7 @@ def test(args):
     model = Unet(3, 1)
     model.load_state_dict(torch.load(model_path +
                                      args.ckpt, map_location='cpu'))        # 加载训练数据权重
-    liver_dataset = LiverDataset(
+    liver_dataset = DJDataset(
         data_path + "data/test", transform=x_transforms, target_transform=y_transforms)
     dataloaders = DataLoader(liver_dataset, batch_size=1)
     model.eval()

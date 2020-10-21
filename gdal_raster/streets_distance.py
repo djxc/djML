@@ -58,7 +58,7 @@ def extendBy1(point, raster, street, maxX_, maxY_):
     maxY = maxY_   
     pointX = point[0]
     pointY = point[1]
-    for step in range(1, 300):
+    for step in range(1, 100):
         for stepX in range(pointX - step, pointX + step):
             if stepX > 0 and stepX < maxX:
                 if pointY - step >= 0:       
@@ -87,7 +87,7 @@ def extendBy1(point, raster, street, maxX_, maxY_):
                 if min_ > tem_min:
                     min_ = tem_min
             return min_
-    return 200
+    return 20000
 
 def exportTiff(cols, rows, array, inputDataset):
     im_geotrans = inputDataset.GetGeoTransform()  #仿射矩阵
