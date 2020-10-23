@@ -8,6 +8,7 @@ import argparse
 from PIL import Image
 from unet import Unet
 from torch import nn, optim
+from tqdm import tqdm
 
 from dataset import DJDataset
 from torch.utils.data import DataLoader
@@ -27,32 +28,31 @@ x_transforms = transforms.Compose([
 y_transforms = transforms.ToTensor()
 
 
-def train_model(model, criterion, optimizer, dataload, num_epochs=20):
+def train_model(model, criterion, optimizer, dataload, dataNum, num_epochs=20):
     '''模型训练
         训练模型的细节，需要输入模型、损失函数、优化器以及数据
         1、进行n轮训练，默认为20#
     '''
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
         dt_size = len(dataload.dataset)     # 获取数据个数
         epoch_loss = 0
         step = 0
-        for x, y in dataload:
-            step += 1
-            # 将输入的要素用gpu计算
-            inputs = x.to(device)
-            labels = y.to(device)
-            # zero the parameter gradients
-            optimizer.zero_grad()
-            # 前向传播
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)   # 损失函数
-            loss.backward()                     # 后向传播
-            optimizer.step()                    # 参数优化
-            epoch_loss += loss.item()
-            print("%d/%d,train_loss:%0.3f" %
-                  (step, (dt_size - 1) // dataload.batch_size + 1, loss.item()))
+        with tqdm(total=dataNum, desc=f'Epoch {epoch + 1}/{num_epochs}', unit='img') as pbar:
+            for x, y in dataload:
+                step += 1
+                # 将输入的要素用gpu计算
+                inputs = x.to(device)
+                labels = y.to(device)
+                # zero the parameter gradients
+                optimizer.zero_grad()
+                # 前向传播
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)   # 损失函数
+                loss.backward()                     # 后向传播
+                optimizer.step()                    # 参数优化
+                epoch_loss += loss.item()
+                pbar.set_postfix(**{'loss': loss.item()})
+                pbar.update(x.shape[0])              
         print("epoch %d loss:%0.3f" % (epoch, epoch_loss/step))
     torch.save(model.state_dict(), model_path + 'weights_unet_car_%d.pth' %
                epoch)        # 保存模型参数，使用时直接加载保存的path文件
@@ -66,6 +66,9 @@ def train(args):
         3、训练模型，输入
     """
     model = Unet(3, 1).to(device)
+    if args.ckpt:
+        model.load_state_dict(torch.load(
+            model_path + args.ckpt))        # 加载训练数据权重
     batch_size = args.batch_size                    # 每次计算的batch大小
     criterion = nn.BCEWithLogitsLoss()              # 损失函数
     optimizer = optim.Adam(model.parameters())      # 优化函数
@@ -75,7 +78,7 @@ def train(args):
     dataloaders = DataLoader(liver_dataset,
                              batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
 
-    train_model(model, criterion, optimizer, dataloaders)
+    train_model(model, criterion, optimizer, dataloaders, len(liver_dataset))
 
 
 def test(args):
