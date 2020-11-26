@@ -27,7 +27,10 @@ def convolution(img, kernel):
 
 def convolve(img, fil, mode='same'):
     '''多波段的卷积运算，首先分离波段，然后每个波段进行卷积，
-    然后将结果进行合并'''
+    然后将结果进行合并
+        @param img 进行卷积的影像
+        @param fil 卷积核
+    '''
     if mode == 'fill':
         h = fil.shape[0] // 2
         w = fil.shape[1] // 2
@@ -40,6 +43,7 @@ def convolve(img, fil, mode='same'):
 
 
 def create_kernel(kernelName=""):
+    '''生成不同的卷积核'''
     if kernelName == "":
         # 卷积核
         fil = np.array([[-1, -1, 0],
@@ -97,10 +101,10 @@ def img2tensor(img):
 def conv_torch(img):
     '''通过pytorch的内部方法进行卷积运算、上下采样以及激活函数操作。
     pytorch的卷积核为随机的卷积核，会根据反向传播算法进行更新参数。'''
-    torchConv = nn.Conv2d(3, 3, (3, 3))
-    batchNorm = nn.BatchNorm2d(3)
-    relu = nn.ReLU(inplace=True)
-    maxpool = nn.MaxPool2d(2)
+    torchConv = nn.Conv2d(3, 3, (3, 3))     # 二维卷积
+    batchNorm = nn.BatchNorm2d(3)           # 归一化，为激活函数处理做准备
+    relu = nn.ReLU(inplace=True)            # 激活函数，大于0设为本身小于0的设为0
+    maxpool = nn.MaxPool2d(2)               # 最大池化，将图像尺寸缩小
 
     conv_img = torchConv(img)
     normal_img = batchNorm(conv_img)
@@ -110,7 +114,7 @@ def conv_torch(img):
 
 
 def hidden_layer(in_ch, out_ch, img):
-    ''''''
+    '''采用Squential将多个操作包裹在一起成为一个步骤，包括两步卷积、归一化以及激活函数'''
     hiddenLayer = nn.Sequential(
         nn.Conv2d(in_ch, out_ch, 3, padding=1),
         nn.BatchNorm2d(out_ch),
@@ -123,7 +127,9 @@ def hidden_layer(in_ch, out_ch, img):
 
 
 def showResult():
-    img = cv2.imread("/home/djxc/test3.jpg")
+    '''读取图像，进行操作，显示结果
+    '''
+    img = cv2.imread("/2020/data/test3.jpg")
     b, g, r = cv2.split(img)
     # 原始图像， matplotlib显示图像是bgr需要修改为rgb
     img2 = cv2.merge([r, g, b])
@@ -178,4 +184,5 @@ def showResult():
     plt.subplot(236)
     plt.imshow(tensor_to_np(hidden_layer_img))
     plt.title("2 conv")
-    plt.show()
+    plt.savefig("/2020/result.jpg")
+    # plt.show()

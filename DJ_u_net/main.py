@@ -71,7 +71,7 @@ def train(args):
             model_path + args.ckpt))        # 加载训练数据权重
     batch_size = args.batch_size                    # 每次计算的batch大小
     criterion = nn.BCEWithLogitsLoss()              # 损失函数
-    optimizer = optim.Adam(model.parameters())      # 优化函数
+    optimizer = optim.Adam(model.parameters(), lr=0.1)      # 优化函数
 
     liver_dataset = DJDataset(data_path + "streetCarMask", trainOrTest=args.action,
                               transform=x_transforms, target_transform=y_transforms)
