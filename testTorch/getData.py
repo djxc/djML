@@ -6,19 +6,21 @@ import numpy as np
 import torch.optim as optim
 from net import Net 
 import torch.nn as nn
+import time
 
 # 获取数据，将其保存在了2019/python/data下
+data_root = "/mnt/d/Data"
 def getData():
     transform = transforms.Compose(
         [transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+    trainset = torchvision.datasets.CIFAR10(root=data_root, train=True,
                                             download=True, transform=transform)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
                                             shuffle=True, num_workers=2)
 
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+    testset = torchvision.datasets.CIFAR10(root=data_root, train=False,
                                         download=True, transform=transform)
     testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                             shuffle=False, num_workers=2)
@@ -54,8 +56,8 @@ def train(trainloader):
 
     criterion = nn.CrossEntropyLoss()       # 定义损失函数
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)         # 定义优化函数，学习率为0.001
-
-    for epoch in range(10):  # loop over the dataset multiple times
+    start_time = time.time()
+    for epoch in range(3):  # loop over the dataset multiple times
 
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
@@ -76,7 +78,9 @@ def train(trainloader):
             if i % 2000 == 1999:    # print every 2000 mini-batches
                 print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 2000))
                 running_loss = 0.0
-    print('Finished Training')
+    end_time = time.time()
+    print('Finished Training, spend time: ', end_time - start_time)
+
     torch.save(net.state_dict(), './test.pth')        # 保存模型
 
 '''测试模型
@@ -114,6 +118,6 @@ def testWholeData(testloader):
 if __name__ == "__main__":
     trainloader, testloader, classes = getData()
     # showData(trainloader, classes)
-    # train(trainloader)
+    train(trainloader)
     # test(testloader)
-    testWholeData(testloader)
+    # testWholeData(testloader)
