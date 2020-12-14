@@ -10,7 +10,9 @@ from torch import nn
 
 
 class DJModel(nn.Module):
-    '''继承torch下的Module'''
+    '''继承torch下的Module
+        定义四层卷积网络，用来对图像进行分类
+    '''
     def __init__(self, in_ch, out_ch):
         '''init中定义一些运算'''
         super(DJModel, self).__init__()

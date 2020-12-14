@@ -11,9 +11,9 @@ import torch
 from torch import nn, optim
 import numpy as np
 
-from .dataset import MNISTData
+from .datasets.dataset import MNISTData
 from .operateIMG import hidden_layer
-from .dj_model import DJModel
+from .models.dj_model import DJModel
 from .loss import cross_entropy_loss
 
 lr = 0.001
