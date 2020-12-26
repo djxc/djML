@@ -2,7 +2,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
-from .operateIMG import tensor_to_np
+from ..operateIMG import tensor_to_np
 batch_size = 8
 
 def MNISTData():
@@ -16,8 +16,8 @@ def MNISTData():
             [0.5],
             [0.5])
         ])
-    train_dataset = datasets.MNIST(root="/2020/data/", train=True, transform=data_tf)
-    test_dataset = datasets.MNIST(root="/2020/data/", train=False, transform=data_tf)
+    train_dataset = datasets.MNIST(root="D:\\Data", train=True, transform=data_tf, download=True)
+    test_dataset = datasets.MNIST(root="D:\\Data", train=False, transform=data_tf, download=True)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     return train_loader, test_loader
@@ -33,5 +33,5 @@ def showData():
         print(i, images.shape, labels.item(), img.shape)
         index += 1
         if index > 6:
-            plt.savefig("/2020/numberDetect.jpg")
+            plt.savefig("D:\\Data\\numberDetect.jpg")
             break
