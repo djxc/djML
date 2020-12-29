@@ -204,7 +204,7 @@ def vgg19_bn(pretrained=False, progress=True, **kwargs):
     return _vgg('vgg19_bn', 'E', True, pretrained, progress, **kwargs)
 
 if __name__ == "__main__":
-    vgg16 = vgg16_bn()
+    vgg16 = vgg16_bn(num_classes=2)
     # vgg = vgg_block(3, 64, 128)
     import_param = Variable(torch.zeros(1, 3, 300, 300))
     out_param = vgg16(import_param)

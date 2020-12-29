@@ -20,7 +20,8 @@ class InsectDetectNet(nn.Module):
         # 第二个全连接层
         self.fc2 = nn.Linear(256, 128)
         # 最后的全连接层，输出为2代表2分类
-        self.fc3 = nn.Linear(128, 2)  
+        self.fc3 = nn.Linear(128, 2)
+        
     def forward(self, x):
         # 输入图像经过第一个卷积层卷积
         x = self.conv1(x)
