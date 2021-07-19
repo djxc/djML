@@ -1,3 +1,6 @@
+# 数据读取与处理
+
+
 import sys
 import torch
 import torchvision
@@ -8,7 +11,9 @@ import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 
 
-def load_data_fashion_mnist(batch_size, resize=None, root="/document/2019/python/Data/"):
+CURRENT_IMAGE_PATH = "/2020/"
+
+def load_data_fashion_mnist(batch_size, resize=None, root="/2020/data/"):
     '''采用torchvision进行图像数据的读取
     '''
     trans = []
@@ -118,8 +123,12 @@ def say(name):
 
 def create_data(num_examples, num_inputs):
     '''生成随机数据
-        @param num_examples 为生成数据的个数
-        @param num_inputs 为数据的维度
+        1、首先利用numpy生成随机数据，范围为0-1，然后将其转换为tensor格式    
+        2、然后利用生成的数据与true_w相乘，在加上true_b得到label  
+        3、为了模拟数据的随机性，为每个标签添加了0.01的误差
+        @param num_examples 为生成数据的个数  
+        @param num_inputs 为数据的维度  
+        @return features 数据, labels 标签
     '''
     true_w = [2, -3.4]
     true_b = 4.2
@@ -134,37 +143,36 @@ def create_data(num_examples, num_inputs):
     return features, labels
 
 
-def linreg(X, w, b):  # 矩阵相乘，前向传播
-    return torch.mm(X, w) + b
-
-
-def squared_loss(y_hat, y):  # 损失函数
-    return (y_hat - y.view(y_hat.size())) ** 2 / 2
-
 
 def sgd(params, lr, batch_size):  # 优化函数
+    '''优化函数'''
     for param in params:
         param.data -= lr * param.grad / batch_size
 
 
 def data_iter(batch_size, features, labels):
+    '''分批读取数据，每批包含batch_size个数据'''
     num_examples = len(features)
     indices = list(range(num_examples))
     np.random.shuffle(indices)  # 样本的读取顺序是随机的
     for i in range(0, num_examples, batch_size):
-        # 最后一一次可能不不足足一一个batch
+        # 最后一次可能不足一个batch
         j = torch.LongTensor(indices[i: min(i + batch_size, num_examples)])
         yield features.index_select(0, j), labels.index_select(0, j)
 
 
-def showData(x, y):
+def showData(x, y, save=False):
+    '''显示matplotlib绘制的图片，由于docker中不方便直接显示，这里将其保存在指定文件下显示'''
     plt.xlabel('length')
     plt.ylabel('width')
     plt.legend(loc='upper left')
     plt.scatter(x, y, c='',
                         alpha=1.0, linewidth=1.0, marker='o', edgecolors='yellow',
                         s=55, label='test set')
-    plt.show()
+    if save:
+        plt.savefig(CURRENT_IMAGE_PATH + "temp.jpg", dpi=600) 
+    else:
+        plt.show()
 
 
 class FlattenLayer(nn.Module):

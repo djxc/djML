@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 
 from .models.insectDetectNet import InsectDetectNet
+from .models.vgg16 import vgg16_bn
 
 import torch
 import torch.nn as nn
@@ -16,7 +17,7 @@ import copy
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-data_dir = 'D:\Data\hymenoptera_data'
+data_dir = '/2020/data/hymenoptera_data'
 
 
 def insectData():
@@ -140,20 +141,72 @@ def train_model(model, dataloaders, dataset_sizes, criterion, optimizer, schedul
 
 def train():
     dataloaders, dataset_sizes, class_names = insectData()
+    # net = InsectDetectNet().to(device)
+    # net, optimizer_ft, exp_lr_scheduler = res18model()
+    # net = vgg16_bn(pretrained=True, num_classes=2).to(device)
+    net, optimizer_ft, exp_lr_scheduler = vgg16Model()
+    # print(net)
 
-    net = InsectDetectNet()
     # 定义分类loss 
     criterion = nn.CrossEntropyLoss()
 
     # 优化器使用sgd，学习率设置为0.001
-    optimizer_ft = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    # optimizer_ft = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
     # 每7个epoch将lr降低为原来的0.1
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
+    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 
     # 进行训练
     cnn_model = train_model(net, dataloaders, dataset_sizes, criterion, optimizer_ft, exp_lr_scheduler,
                         num_epochs=25) 
+
+def vgg16Model():
+    '''
+        采用训练好的resnet18模型进行训练
+        1、需要修改最后输出的维数，修改最后一层全连接层
+        2、模型训练只更新全连接层的参数
+    '''
+    net = vgg16_bn(pretrained=True).to(device)
+    
+    # freeze前面的卷积层，使其训练时不更新
+    for param in net.parameters():
+        param.requires_grad = False
+
+    # 最后的分类fc层输出换为2，进行二分类
+    num_ftrs = net.classifier[6].in_features
+    net.classifier[6] = nn.Linear(num_ftrs, 2)
+
+    net = net.to(device)
+
+    # 仅训练最后改变的fc层
+    optimizer_conv = optim.SGD(net.classifier[6].parameters(), lr=0.001, momentum=0.9)
+
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_conv, step_size=7, gamma=0.1)
+    return net, optimizer_conv, exp_lr_scheduler
+
+def res18model():
+    '''
+        采用训练好的resnet18模型进行训练
+        1、需要修改最后输出的维数，修改最后一层全连接层
+        2、模型训练只更新全连接层的参数
+    '''
+    # 从torchvision中载入resnet18模型，并且加载预训练
+    model_conv = torchvision.models.resnet18(pretrained=True)
+    # freeze前面的卷积层，使其训练时不更新
+    for param in model_conv.parameters():
+        param.requires_grad = False
+
+    # 最后的分类fc层输出换为2，进行二分类
+    num_ftrs = model_conv.fc.in_features
+    model_conv.fc = nn.Linear(num_ftrs, 2)
+
+    model_conv = model_conv.to(device)
+
+    # 仅训练最后改变的fc层
+    optimizer_conv = optim.SGD(model_conv.fc.parameters(), lr=0.001, momentum=0.9)
+
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_conv, step_size=7, gamma=0.1)
+    return model_conv, optimizer_conv, exp_lr_scheduler
 
 def visualize_model(model, num_images=6):
     was_training = model.training
