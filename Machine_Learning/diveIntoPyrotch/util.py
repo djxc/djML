@@ -1,3 +1,7 @@
+from PIL import Image
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
 import data
 # 本函数已保存在d2lzh包中方方便便以后使用用
 def train_ch3(net, train_iter, test_iter, loss, num_epochs, batch_size, params=None, lr=None, optimizer=None):
@@ -38,3 +42,15 @@ def evaluate_accuracy(data_iter, net):
 
 def accuracy(y_hat, y):
     return (y_hat.argmax(dim=1) == y).float().mean().item()
+
+
+def showIMG(bboxs=None):
+    img=Image.open("D:\\ID.jpg")
+    plt.figure(8)
+    plt.imshow(img)
+    if bboxs is not None:
+        currentAxis=plt.gca()
+        for bbox in bboxs:
+            rect=patches.Rectangle((bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], linewidth=1, edgecolor='r',facecolor='none')
+            currentAxis.add_patch(rect)
+    plt.show()
