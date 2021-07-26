@@ -132,3 +132,11 @@ class AlexNet(nn.Module):
         feature = self.conv(img)
         output = self.fc(feature.view(img.shape[0], -1))
         return output
+
+
+class Residual(nn.Module):
+
+    def __init__(self, in_channels, out_channels, use_1x1conv=False, stride=1):
+        ''''''
+        super(Residual, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size)
