@@ -12,8 +12,8 @@ import torchvision.transforms as transforms
 
 
 CURRENT_IMAGE_PATH = "/2020/"
-
-def load_data_fashion_mnist(batch_size, resize=None, root="/2020/data/"):
+# D:\Data\机器学习\fashion-MNIST /2020/data/
+def load_data_fashion_mnist(batch_size, resize=None, root="D:\\Data\\机器学习\\"):
     '''采用torchvision进行图像数据的读取
     '''
     trans = []
