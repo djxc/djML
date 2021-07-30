@@ -6,11 +6,11 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 
-from model import LeNet, AlexNet, VGG, createResNet, createDenseNet, TinySSD
-from data import train_GPU, load_data_fashion_mnist, BananasDataset
+from model import LeNet, AlexNet, VGG, createResNet, createDenseNet, TinySSD, createFCN
+from data import train_GPU, load_data_fashion_mnist, BananasDataset, load_data_voc
 from util import showIMG, multibox_prior, show_bboxes, multibox_target, multibox_detection, show_images
-from util import Timer, Accumulator, Animator, set_figsize
-from loss import calc_loss,cls_eval, bbox_eval
+from util import Timer, Accumulator, Animator, set_figsize, train_ch13
+from loss import calc_loss,cls_eval, bbox_eval, CrossEntropy
 
 CURRENT_IMAGE_PATH = "/2020/"
 
@@ -195,6 +195,24 @@ def display(img, output, threshold):
     plt.savefig(CURRENT_IMAGE_PATH + "temp.jpg")
 
 
+def trainFCN():
+    '''训练全卷积网络'''
+    net = createFCN()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    net = net.to(device)
+    # print(net)
+    num_epochs, lr, wd = 5, 0.001, 1e-3
+    trainer = torch.optim.SGD(net.parameters(), lr=lr, weight_decay=wd)
+    batch_size, crop_size = 32, (320, 480)
+    train_iter, test_iter = load_data_voc(batch_size, crop_size)
+    train_ch13(net, train_iter, test_iter, CrossEntropy, trainer, num_epochs, device)
+
+def predictionFCN():
+    ''''''
+    net = createFCN()
+    net.load_state_dict(torch.load('net_params.pkl'))
+    # prediction = net(x)
+
 if __name__ == "__main__":
     # net = LeNet()
     # net = AlexNet()
@@ -206,4 +224,5 @@ if __name__ == "__main__":
     # showIMG(bboxs=[[250, 130, 350, 280], [150, 30, 250, 280]], save=True)
     # testAnchors()
     # multiLevelAnchors()
-    bannasRecognition()
+    # bannasRecognition()
+    trainFCN()

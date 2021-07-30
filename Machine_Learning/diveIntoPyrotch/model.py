@@ -1,5 +1,6 @@
 # 定义模型
 import torch
+import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -428,3 +429,44 @@ class TinySSD(nn.Module):
                                       self.num_classes + 1)
         bbox_preds = concat_preds(bbox_preds)
         return anchors, cls_preds, bbox_preds
+
+# 全卷积网络：利用卷积层对图像进行特征提取，
+# 然后利用1x1卷积层将通道数变换为类别个数，
+# 最后通过转置卷积层将特征图的高和宽变换为输入图像的尺寸
+# 转置矩阵用用双线性内插进行实现，目的为上采样
+def createFCN(num_classes = 21):
+    '''创建全卷积网络
+        1、这里以残差网络作为主干，去除最后两层
+        @param num_classes 需要识别的类个数
+    '''
+    # resNet = createResNet()
+    resNet = torchvision.models.resnet18(pretrained=False)
+    net = nn.Sequential(*list(resNet.children())[:-2])
+    net.add_module('final_conv', nn.Conv2d(512, num_classes, kernel_size=1))
+    net.add_module(
+        'transpose_conv',
+        nn.ConvTranspose2d(num_classes, num_classes, kernel_size=64, padding=16,
+                       stride=32))
+
+    conv_trans = nn.ConvTranspose2d(3, 3, kernel_size=4, padding=1, stride=2,
+                                bias=False)
+    # 用双线性插值的上采样初始化转置卷积层
+    conv_trans.weight.data.copy_(bilinear_kernel(3, 3, 4))
+    W = bilinear_kernel(num_classes, num_classes, 64)
+    net.transpose_conv.weight.data.copy_(W)
+    return net
+
+def bilinear_kernel(in_channels, out_channels, kernel_size):
+    factor = (kernel_size + 1) // 2
+    if kernel_size % 2 == 1:
+        center = factor - 1
+    else:
+        center = factor - 0.5
+    og = (torch.arange(kernel_size).reshape(-1, 1),
+          torch.arange(kernel_size).reshape(1, -1))
+    filt = (1 - torch.abs(og[0] - center) / factor) * \
+           (1 - torch.abs(og[1] - center) / factor)
+    weight = torch.zeros(
+        (in_channels, out_channels, kernel_size, kernel_size))
+    weight[range(in_channels), range(out_channels), :, :] = filt
+    return weight

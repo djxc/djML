@@ -1,6 +1,7 @@
 import os
 
 import torch
+import torch.nn as nn
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -9,9 +10,41 @@ import pandas as pd
 import time
 import numpy as np
 from IPython import display
+from tqdm import tqdm
 
 import data
 CURRENT_IMAGE_PATH = "/2020/"
+
+size = lambda x, *args, **kwargs: x.numel(*args, **kwargs)
+reduce_sum = lambda x, *args, **kwargs: x.sum(*args, **kwargs)
+argmax = lambda x, *args, **kwargs: x.argmax(*args, **kwargs)
+astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
+
+def process_bar(percent, loss, acc, start_str='', end_str='', total_length=0):
+    bar = ''.join(["%s"%'='] * int(percent * total_length)) + ''
+    bar = '\r' + start_str + bar.ljust(total_length) + ' {:0>4.1f}%|'.format(percent*100) + end_str + " loss " +str(loss) + " acc: " + str(acc)
+    print(bar, end='', flush=True)
+
+# Defined in file: ./chapter_convolutional-neural-networks/lenet.md
+def evaluate_accuracy_gpu(net, data_iter, device=None):
+    """Compute the accuracy for a model on a dataset using a GPU."""
+    if isinstance(net, nn.Module):
+        net.eval()  # Set the model to evaluation mode
+        if not device:
+            device = next(iter(net.parameters())).device
+    # No. of correct predictions, no. of predictions
+    metric = Accumulator(2)
+
+    with torch.no_grad():
+        for X, y in data_iter:
+            if isinstance(X, list):
+                # Required for BERT Fine-tuning (to be covered later)
+                X = [x.to(device) for x in X]
+            else:
+                X = X.to(device)
+            y = y.to(device)
+            metric.add(accuracyD(net(X), y), size(y))
+    return metric[0] / metric[1]
 
 # 本函数已保存在d2lzh包中方方便便以后使用用
 def train_ch3(net, train_iter, test_iter, loss, num_epochs, batch_size, params=None, lr=None, optimizer=None):
@@ -39,6 +72,53 @@ def train_ch3(net, train_iter, test_iter, loss, num_epochs, batch_size, params=N
               % (epoch + 1, train_l_sum / n, train_acc_sum / n, test_acc))
 
 
+# Defined in file: ./chapter_computer-vision/image-augmentation.md
+def train_batch_ch13(net, X, y, loss, trainer, device):
+    """Train for a minibatch with mutiple GPUs (defined in Chapter 13)."""
+    if isinstance(X, list):
+        # Required for BERT fine-tuning (to be covered later)
+        X = [x.to(device) for x in X]
+    else:
+        X = X.to(device)
+    y = y.to(device)
+    net.train()
+    trainer.zero_grad()
+    pred = net(X)
+    l = loss(pred, y)
+    l.sum().backward()
+    trainer.step()
+    train_loss_sum = l.sum()
+    print(pred.shape, y.shape)
+    train_acc_sum = accuracyD(pred, y)
+    return train_loss_sum, train_acc_sum
+
+# Defined in file: ./chapter_computer-vision/image-augmentation.md
+def train_ch13(net, train_iter, test_iter, loss, trainer, num_epochs,
+               device):
+    """Train a model with mutiple GPUs (defined in Chapter 13)."""
+    timer, num_batches = Timer(), len(train_iter)
+    print("num_batches", num_batches)
+    for epoch in range(num_epochs):
+        # Sum of training loss, sum of training accuracy, no. of examples,
+        # no. of predictions
+        # metric = Accumulator(4)
+        for i, (features, labels) in enumerate(train_iter):
+            timer.start()
+            l, acc = train_batch_ch13(net, features, labels, loss, trainer, device)
+            # print(f'imageNum: {i}, loss: {l}, acc: {acc}')
+            # metric.add(l, acc, labels.shape[0], labels.numel())
+            process_bar((i + 1) /num_batches, l, acc, start_str='', end_str='100%', total_length=35)
+            timer.stop()
+        print("\ntest ....")
+        test_acc = evaluate_accuracy_gpu(net, test_iter)
+        print(f'epoch  {epoch}, test_acc {test_acc}')
+    # print(f'loss {metric[0] / metric[2]:.3f}, train acc {metric[1] / metric[3]:.3f}, test acc {test_acc:.3f}')
+    # print(f'loss {metric[0]}, {metric[2]:.5f}, train acc {metric[1]}, {metric[3]:.5f}')
+    # print(f'{metric[2] * num_epochs / timer.sum():.1f} examples/sec on {str(device)}')
+    # 保存模型
+    torch.save(net.state_dict(), '/2020/resNet18_voc_params.pkl')
+    print("save model param successfully")
+
 def evaluate_accuracy(data_iter, net):    
     '''模型评估
         1、遍历所有的数据，判读模型算出来的最大值与真实的label是否一致，如果一致则加一否则加0
@@ -53,6 +133,13 @@ def evaluate_accuracy(data_iter, net):
 def accuracy(y_hat, y):
     return (y_hat.argmax(dim=1) == y).float().mean().item()
 
+# Defined in file: ./chapter_linear-networks/softmax-regression-scratch.md
+def accuracyD(y_hat, y):
+    """Compute the number of correct predictions."""
+    if len(y_hat.shape) > 1 and y_hat.shape[1] > 1:
+        y_hat = argmax(y_hat, axis=1)
+    cmp = astype(y_hat, y.dtype) == y
+    return float(reduce_sum(astype(cmp, y.dtype)))
 
 def showIMG(bboxs=None, save=False):
     img=Image.open("/2020/213.jpg")
