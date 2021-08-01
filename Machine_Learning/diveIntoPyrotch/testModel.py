@@ -7,7 +7,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 from model import LeNet, AlexNet, VGG, createResNet, createDenseNet, TinySSD, createFCN
-from data import train_GPU, load_data_fashion_mnist, BananasDataset, load_data_voc
+from data import train_GPU, load_data_fashion_mnist, BananasDataset, load_data_voc, load_data_ITCVD
 from util import showIMG, multibox_prior, show_bboxes, multibox_target, multibox_detection, show_images
 from util import Timer, Accumulator, Animator, set_figsize, train_ch13
 from loss import calc_loss,cls_eval, bbox_eval, CrossEntropy
@@ -107,7 +107,6 @@ def testAnchors():
         label = ('dog=', 'cat=')[int(i[0])] + str(i[1])
         show_bboxes(fig.axes, [torch.tensor(i[2:]) * bbox_scale], label)
     plt.savefig(CURRENT_IMAGE_PATH + "temp.jpg")
-
 
 def load_data_bananas(batch_size):
     """加载香蕉检测数据集。"""
@@ -213,6 +212,19 @@ def predictionFCN():
     net.load_state_dict(torch.load('net_params.pkl'))
     # prediction = net(x)
 
+def trainITCVD():
+    '''训练ITCVD数据集'''
+    train_iter, test_iter = load_data_ITCVD(1)
+    for i, (features, labels) in enumerate(train_iter):
+        if i == 0:
+            fig = plt.imshow(np.transpose(features[0], (1, 2, 0)))
+            # show_bboxes(fig.axes, [torch.tensor(i[2:]) * bbox_scale], label)
+            # plt.savefig(CURRENT_IMAGE_PATH + "temp.jpg")
+            show_bboxes(fig.axes, labels[0])
+            plt.show()
+            print(i, features.shape, labels.shape)
+            break
+
 if __name__ == "__main__":
     # net = LeNet()
     # net = AlexNet()
@@ -225,4 +237,5 @@ if __name__ == "__main__":
     # testAnchors()
     # multiLevelAnchors()
     # bannasRecognition()
-    trainFCN()
+    # trainFCN()
+    trainITCVD()
