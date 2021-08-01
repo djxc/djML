@@ -16,6 +16,7 @@ import time
 import numpy as np
 import hashlib
 import zipfile, tarfile, requests
+from scipy.io import loadmat
 
 
 CURRENT_IMAGE_PATH = "/2020/"
@@ -381,4 +382,52 @@ def load_data_voc(batch_size, crop_size):
     test_iter = torch.utils.data.DataLoader(
         VOCSegDataset(False, crop_size, voc_dir), batch_size, drop_last=True,
         num_workers=num_workers)
+    return train_iter, test_iter
+
+class ITCVDDataset(torch.utils.data.Dataset):
+    '''
+    '''
+    def __init__(self, is_train, root_dir):
+        self.transform = torchvision.transforms.Normalize(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        self.root_dir = root_dir
+        self.images = self.list_files()
+        # self.features = self.normalize_image(feature)
+        print('read ' + str(len(self.images)) + ' examples')
+
+    def normalize_image(self, img):
+        return self.transform(img.float())
+
+    def list_files(self):
+        ''''''
+        images = os.listdir(os.path.join(self.root_dir, "Image"))
+        return images
+
+
+    def __getitem__(self, idx):
+        img_name = self.images[idx]
+        label_name = img_name.replace(".jpg", "")
+        feature = torchvision.io.read_image(os.path.join(self.root_dir, "Image", f'{img_name}'))
+        label = loadmat(os.path.join(self.root_dir, "GT", f'{label_name}'))
+        label = torch.from_numpy(label["x" + label_name].astype(float))
+        return (feature, label)
+
+    def __len__(self):
+        return len(self.images)
+
+
+
+def load_data_ITCVD(batch_size):
+    ''' 加载ITCVD数据集
+    '''
+    num_workers = 4
+    print("load train data")
+    train_iter = torch.utils.data.DataLoader(
+        ITCVDDataset(True, "D://ITCVD//ITC_VD_Training_Testing_set//Training"), batch_size, shuffle=True,
+        drop_last=True, num_workers=num_workers)
+    # print("load test data")
+    test_iter = []
+    # test_iter = torch.utils.data.DataLoader(
+    #     ITCVDDataset(False, "D://ITCVD//ITC_VD_Training_Testing_set//Testing"), batch_size, drop_last=True,
+    #     num_workers=num_workers)
     return train_iter, test_iter
