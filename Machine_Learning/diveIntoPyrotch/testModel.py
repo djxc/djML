@@ -201,7 +201,7 @@ def trainFCN():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     net = net.to(device)
     # print(net)
-    num_epochs, lr, wd = 5, 0.001, 1e-3
+    num_epochs, lr, wd = 15, 0.001, 1e-3
     trainer = torch.optim.SGD(net.parameters(), lr=lr, weight_decay=wd)
     batch_size, crop_size = 32, (320, 480)
     train_iter, test_iter = load_data_voc(batch_size, crop_size)
