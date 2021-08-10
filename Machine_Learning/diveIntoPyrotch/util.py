@@ -1,5 +1,5 @@
 import os
-
+import cv2
 import torch
 import torch.nn as nn
 from PIL import Image
@@ -20,10 +20,94 @@ reduce_sum = lambda x, *args, **kwargs: x.sum(*args, **kwargs)
 argmax = lambda x, *args, **kwargs: x.argmax(*args, **kwargs)
 astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
 
-def process_bar(percent, loss, acc, start_str='', end_str='', total_length=0):
-    bar = ''.join(["%s"%'='] * int(percent * total_length)) + ''
-    bar = '\r' + start_str + bar.ljust(total_length) + ' {:0>4.1f}%|'.format(percent*100) + end_str + " loss " +str(loss) + " acc: " + str(acc)
+def process_bar(percent, loss, acc, epoch, start_str='', end_str='', total_length=0):
+    bar = ''.join(["%s" % '='] * int(percent * total_length)) + ''
+    if loss is not None:
+        bar = '\r' + start_str + bar.ljust(total_length) + ' {:0>4.1f}%|'.format(percent * 100) + end_str + " epoch " + str(epoch) + " loss " + str(loss)
+    else:
+        bar = '\r' + start_str + bar.ljust(total_length) + ' {:0>4.1f}%|'.format(percent*100) + end_str + " epoch " + str(epoch)
     print(bar, end='', flush=True)
+
+
+def evaluate_accuracy_GPU(data_iter, net, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
+    '''验证模型正确率'''
+    acc_sum, n = 0.0, 0
+    with torch.no_grad():
+        for X, y in data_iter:
+            if isinstance(net, torch.nn.Module):
+                net.eval()  # 评估模式, 这会关闭dropout
+                acc_sum += (net(X.to(device)).argmax(dim=1) ==
+                            y.to(device)).float().sum().cpu().item()
+                net.train()  # 改回训练模式
+            else:  # 自自定义的模型, 3.13节之后不不会用用到, 不不考虑GPU
+                if('is_training' in net.__code__.co_varnames):  # 如果有is_training这个参数
+                    # 将is_training设置成False
+                    acc_sum += (net(X, is_training=False).argmax(dim=1)
+                                == y).float().sum().item()
+                else:
+                    acc_sum += (net(X).argmax(dim=1) == y).float().sum().item()
+            n += y.shape[0]
+    return acc_sum / n
+
+
+def train_GPU(net, train_iter, test_iter, batch_size, optimizer, device, num_epochs):
+    # 本函数已保存在d2lzh_pytorch包中方方便便以后使用用
+    net = net.to(device)
+    print("training on ", device)
+    loss = torch.nn.CrossEntropyLoss()
+    batch_count = 0
+    for epoch in range(num_epochs):
+        train_l_sum, train_acc_sum, n, start = 0.0, 0.0, 0, time.time()
+        for X, y in train_iter:
+            X = X.to(device)
+            y = y.to(device)
+            y_hat = net(X)
+            l = loss(y_hat, y)
+            optimizer.zero_grad()
+            l.backward()
+            optimizer.step()
+            train_l_sum += l.cpu().item()
+            train_acc_sum += (y_hat.argmax(dim=1) == y).sum().cpu().item()
+            n += y.shape[0]
+            batch_count += 1
+        test_acc = evaluate_accuracy_GPU(test_iter, net)
+        print('epoch %d, loss %.4f, train acc %.3f, test acc %.3f, time %.1f sec' % (
+            epoch + 1, train_l_sum / batch_count, train_acc_sum / n, test_acc, time.time() - start))
+
+def evaluate_accuracy(data_iter, net):    
+    '''模型评估
+        1、遍历所有的数据，判读模型算出来的最大值与真实的label是否一致，如果一致则加一否则加0
+    '''
+    acc_sum, n = 0.0, 0
+    for X, y in data_iter:
+        acc_sum += (net(X).argmax(dim=1) == y).float().sum().item()
+        n += y.shape[0]
+    return acc_sum / n
+
+
+def train_ch3(net, train_iter, test_iter, loss, num_epochs, batch_size, params=None, lr=None, optimizer=None):
+    for epoch in range(num_epochs):
+        train_l_sum, train_acc_sum, n = 0.0, 0.0, 0
+        for X, y in train_iter:
+            y_hat = net(X)
+            l = loss(y_hat, y).sum()
+            # 梯度清零
+            if optimizer is not None:
+                optimizer.zero_grad()
+            elif params is not None and params[0].grad is not None:
+                for param in params:
+                    param.grad.data.zero_()
+            l.backward()
+            if optimizer is None:
+                sgd(params, lr, batch_size)
+            else:
+                optimizer.step()  # “softmax回归的简洁实现”一一节将用用到
+            train_l_sum += l.item()
+            train_acc_sum += (y_hat.argmax(dim=1) == y).sum().item()
+            n += y.shape[0]
+        test_acc = evaluate_accuracy(test_iter, net)
+        print('epoch %d, loss %.4f, train acc %.3f, test acc %.3f'
+              % (epoch + 1, train_l_sum / n, train_acc_sum / n, test_acc))
 
 # Defined in file: ./chapter_convolutional-neural-networks/lenet.md
 def evaluate_accuracy_gpu(net, data_iter, device=None):
@@ -34,7 +118,8 @@ def evaluate_accuracy_gpu(net, data_iter, device=None):
             device = next(iter(net.parameters())).device
     # No. of correct predictions, no. of predictions
     metric = Accumulator(2)
-
+    i = 0
+    totalNum = len(data_iter)
     with torch.no_grad():
         for X, y in data_iter:
             if isinstance(X, list):
@@ -43,7 +128,10 @@ def evaluate_accuracy_gpu(net, data_iter, device=None):
             else:
                 X = X.to(device)
             y = y.to(device)
-            metric.add(accuracyD(net(X), y), size(y))
+            acc = accuracyD(net(X), y)
+            metric.add(acc, size(y))
+            process_bar((i + 1) / totalNum, None, None, 0, start_str='', end_str='100%', total_length=35)
+            i = i + 1
     return metric[0] / metric[1]
 
 # 本函数已保存在d2lzh包中方方便便以后使用用
@@ -88,7 +176,6 @@ def train_batch_ch13(net, X, y, loss, trainer, device):
     l.sum().backward()
     trainer.step()
     train_loss_sum = l.sum()
-    print(pred.shape, y.shape)
     train_acc_sum = accuracyD(pred, y)
     return train_loss_sum, train_acc_sum
 
@@ -99,25 +186,23 @@ def train_ch13(net, train_iter, test_iter, loss, trainer, num_epochs,
     timer, num_batches = Timer(), len(train_iter)
     print("num_batches", num_batches)
     for epoch in range(num_epochs):
-        # Sum of training loss, sum of training accuracy, no. of examples,
-        # no. of predictions
-        # metric = Accumulator(4)
+        loss_num = 0
         for i, (features, labels) in enumerate(train_iter):
             timer.start()
-            l, acc = train_batch_ch13(net, features, labels, loss, trainer, device)
-            # print(f'imageNum: {i}, loss: {l}, acc: {acc}')
-            # metric.add(l, acc, labels.shape[0], labels.numel())
-            process_bar((i + 1) /num_batches, l, acc, start_str='', end_str='100%', total_length=35)
+            l, acc = train_batch_ch13(net, features, labels, loss, trainer, device)          
+            loss_num = loss_num + l.item()
+            process_bar((i + 1) / num_batches, loss_num / (i + 1), acc, epoch + 1, start_str='', end_str='100%', total_length=35)
             timer.stop()
-        print("\ntest ....")
-        test_acc = evaluate_accuracy_gpu(net, test_iter)
-        print(f'epoch  {epoch}, test_acc {test_acc}')
-    # print(f'loss {metric[0] / metric[2]:.3f}, train acc {metric[1] / metric[3]:.3f}, test acc {test_acc:.3f}')
-    # print(f'loss {metric[0]}, {metric[2]:.5f}, train acc {metric[1]}, {metric[3]:.5f}')
-    # print(f'{metric[2] * num_epochs / timer.sum():.1f} examples/sec on {str(device)}')
-    # 保存模型
-    torch.save(net.state_dict(), '/2020/resNet18_voc_params.pkl')
-    print("save model param successfully")
+        print("\nepcho:", epoch + 1, " ;time:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
+        # 每五次epoch进行模型评估
+        if (epoch + 1) % 5 == 0:
+            print("\ntest...")
+            test_acc = evaluate_accuracy_gpu(net, test_iter)
+            print(f'test_acc {test_acc}')
+        if (epoch + 1) % 50 == 0:
+            # 每隔50次epoch保存模型
+            torch.save(net.state_dict(), '/2020/resNet18_voc_params_' + str(epoch + 1) + '.pkl')
+            print("save model param successfully")
 
 def evaluate_accuracy(data_iter, net):    
     '''模型评估
@@ -156,12 +241,15 @@ def showIMG(bboxs=None, save=False):
         plt.show()
 
 
-#@save
 def multibox_prior(data, sizes, ratios):
-    """生成以每个像素为中心具有不同形状的锚框。"""
-    in_height, in_width = data.shape[-2:]
+    """生成以每个像素为中心具有不同形状的锚框。
+        @param data 图像矩阵
+        @param sizes 锚框相对与图像的大小
+        @param ratios 锚框的长宽比
+    """
+    in_height, in_width = data.shape[-2:]           # 获取图片的长宽
     device, num_sizes, num_ratios = data.device, len(sizes), len(ratios)
-    boxes_per_pixel = (num_sizes + num_ratios - 1)
+    boxes_per_pixel = (num_sizes + num_ratios - 1)  # 每个像素获取的锚框个数
     size_tensor = torch.tensor(sizes, device=device)
     ratio_tensor = torch.tensor(ratios, device=device)
 
@@ -232,15 +320,15 @@ def show_bboxes(axes, bboxes, labels=None, colors=None):
         if labels and len(labels) > i:
             text_color = 'k' if color == 'w' else 'w'
             axes.text(rect.xy[0], rect.xy[1], labels[i], va='center',
-                      ha='center', fontsize=9, color=text_color,
-                      bbox=dict(facecolor=color, lw=0))
+                      ha='center', fontsize=3, color=text_color,
+                      bbox=dict(facecolor=color, lw=0, alpha=0))
 
 def bbox_to_rect(bbox, color):
     # 将边界框 (左上x, 左上y, 右下x, 右下y) 格式转换成 matplotlib 格式：
     # ((左上x, 左上y), 宽, 高)
     return patches.Rectangle(xy=(bbox[0], bbox[1]), width=bbox[2] - bbox[0],
                              height=bbox[3] - bbox[1], fill=False,
-                             edgecolor=color, linewidth=2)
+                             edgecolor=color, linewidth=1)
 
 def box_iou(boxes1, boxes2):
     """计算两个锚框或边界框列表中成对的交并比。"""
@@ -343,7 +431,7 @@ def multibox_target(anchors, labels):
         indices_true = torch.nonzero(anchors_bbox_map >= 0)
         bb_idx = anchors_bbox_map[indices_true]
         class_labels[indices_true] = label[bb_idx, 0].long() + 1
-        assigned_bb[indices_true] = label[bb_idx, 1:]
+        assigned_bb[indices_true] = label[bb_idx, 1:].float()
         # 偏移量转换
         offset = offset_boxes(anchors, assigned_bb) * bbox_mask
         batch_offset.append(offset.reshape(-1))
@@ -518,3 +606,22 @@ class Animator:
         display.clear_output(wait=True)
 
 
+def clipIMG(imgRoot):
+    '''裁剪图像
+        1、遍历图像，读取图像
+        2、首先以宽度单位读取高度，保存图像,图像名为该图像左上角在原始图像中的宽度_高度
+    '''
+    imgs = os.listdir(imgRoot)
+    imgSize = 1024
+    a = 0
+    for img in imgs:
+        imgPath = os.path.join(imgRoot, img)
+        imgData = cv2.imread(imgPath)
+        imgHeight = imgData.shape[0]
+        imgWidth = imgData.shape[1]
+        for width in range(0, imgWidth - imgSize + 1, imgSize):
+            for height in range(0, imgHeight - imgSize + 1, imgSize):
+                img_clip = imgData[height:height + imgSize, width:width + imgSize]
+                print(img_clip.shape)
+                cv2.imwrite(os.path.join("/2020/data/ITCVD/ITC_VD_Training_Testing_set/Testing/clipIMG",
+                    img.split('.')[0] + "_" + str(width) + "_" + str(height) + ".jpg"), img_clip)

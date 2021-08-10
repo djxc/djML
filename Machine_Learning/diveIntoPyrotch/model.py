@@ -396,8 +396,8 @@ def blk_forward(X, blk, size, ratio, cls_predictor, bbox_predictor):
     bbox_preds = bbox_predictor(Y)
     return (Y, anchors, cls_preds, bbox_preds)
 
-sizes = [[0.2, 0.272], [0.37, 0.447], [0.54, 0.619], [0.71, 0.79],
-         [0.88, 0.961]]
+sizes = [[0.03, 0.037], [0.04, 0.051], [0.054, 0.062], [0.068, 0.074],
+         [0.074, 0.08]]
 ratios = [[1, 2, 0.5]] * 5
 num_anchors = len(sizes[0]) + len(ratios[0]) - 1
 

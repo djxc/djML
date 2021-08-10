@@ -4,17 +4,11 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 
-<<<<<<< HEAD
-LOOK_BACK = 7
-IS_TRAIN = False
-EPOCH_NUM = 1000
-=======
 LOOK_BACK = 60
 INPUT_DATA_DIM = 1
 EPOCH_NUM = 1000
 train_data_path = "/2020/python/djML/water_predict/water_train.csv"
 test_data_path = "/2020/python/djML/water_predict/water_test.csv"
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
 
 
 class lstm(nn.Module):
@@ -26,20 +20,6 @@ class lstm(nn.Module):
     '''
     def __init__(self, input_size=LOOK_BACK, hidden_size=4, output_size=1, num_layer=2):
         super(lstm,self).__init__()
-<<<<<<< HEAD
-        # self.fistLayer = nn.Linear(7, )
-        self.layer1 = nn.LSTM(3, hidden_size, num_layer)
-        self.layer2 = nn.Linear(hidden_size, output_size)
-
-        self.layer3 = nn.LSTM(3, hidden_size, num_layer)
-        self.layer4 = nn.Linear(hidden_size, output_size)
-
-        # self.layerOut = nn.Linear(719 * 2, 1)
-
-    
-    def forward(self, x_a, x_b):
-        print(x_a.shape, x_b.shape)
-=======
         self.layer1 = nn.LSTM(LOOK_BACK, hidden_size, num_layer)
         self.layer2 = nn.Linear(hidden_size, output_size)
         self.layer13 = nn.Linear(INPUT_DATA_DIM, output_size)       
@@ -67,30 +47,17 @@ class lstm(nn.Module):
         return x
     
     def forward(self, x_a, x_b):
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
         xa, _ = self.layer1(x_a)
         s, b, h = xa.size()
         xa = xa.view(s * b, h)
         xa = self.layer2(xa)
-<<<<<<< HEAD
-        xa = xa.view(s, b, -1)
-=======
         xa = xa.view(s, b)
         xa = self.layer13(xa)
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
 
         xb, _ = self.layer3(x_b)
         s, b, h = xb.size()
         xb = xb.view(s * b, h)
         xb = self.layer4(xb)
-<<<<<<< HEAD
-        xb = xb.view(s, b, -1)
-        if IS_TRAIN:
-            # print([xa, xb])
-            # out = self.layerOut([xa, xb])
-            # return out
-            return xa,  xb
-=======
         xb = xb.view(s, b)
         xb = self.layer23(xb)
         # print(out.shape)
@@ -99,7 +66,6 @@ class lstm(nn.Module):
             # out = self.layerOut(out)
             # out = xa + xb
             return xa, xb
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
         else:
             return xa,  xb
 
@@ -111,11 +77,7 @@ def train_LSTM(train_a_x, train_a_y, train_b_x, train_b_y):
         @param train_x 训练数据
         @param train_y 样本
     '''
-<<<<<<< HEAD
-    model = lstm(LOOK_BACK, 4, 1, 2)
-=======
     model = lstm(LOOK_BACK)
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
     criterion = nn.MSELoss()    # 损失函数
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)       # 优化函数
     # 开始训练
@@ -123,37 +85,6 @@ def train_LSTM(train_a_x, train_a_y, train_b_x, train_b_y):
         var_a_x = Variable(train_a_x)
         var_a_y = Variable(train_a_y)
         var_b_x = Variable(train_b_x)
-<<<<<<< HEAD
-        var_b_y = Variable(train_b_y)      
-        # 前向传播
-        outa, outb = model(var_a_x, var_b_x)
-        loss = criterion(outa + outb, var_a_y)
-        # 反向传播
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        
-        if (e + 1) % 10 == 0: # 每 100 次输出结果
-            print('Epoch: {}, Loss: {:.5f}'.format(e + 1, loss.item()))
-    torch.save(model, 'model.pkl')
-    return model
-
-def test_model(model, data_a_X, data_b_X):
-    '''训练模型'''
-    model = model.eval() # 转换成测试模式
-    # data_a_X = data_a_X.reshape(-1, 1, LOOK_BACK)
-    # data_b_X = data_b_X.reshape(-1, 1, LOOK_BACK)
-    # data_X = torch.from_numpy(data_X)
-    var_data_a = Variable(data_a_X)
-    var_data_b = Variable(data_b_X)
-    pred_text_a, pred_test_b = model(var_data_a, var_data_b) # 测试集的预测结果
-    # 改变输出的格式
-    pred_test_a = pred_text_a.view(-1).data.numpy()
-    pred_test_b = pred_test_b.view(-1).data.numpy()
-    for pred_a, pred_b in zip(pred_test_a, pred_test_b):
-        print(pred_a, pred_b)
-
-=======
         var_b_y = Variable(train_b_y)
         
         # 前向传播
@@ -222,7 +153,6 @@ def test_fly_model(model, data_a_X):
     for pred_a in pred_test_a:
         print(pred_a)
 
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
 def max_min_standard(dataset):
     '''数据进行最大最小归一化'''
     # 数据进行归一化
@@ -249,42 +179,25 @@ def get_water_data(data_path):
     dataset_B = dataset_b.reshape(len(dataset_b), -1)
     dataset_Holiday = dataset_holiday.reshape(len(dataset_holiday), -1)
     dataset_Total = dataset_total.reshape(len(dataset_total), -1)
-<<<<<<< HEAD
-    dataSet_A = np.concatenate((dataset_A, dataset_Holiday, dataset_Total), axis=1)
-    dataSet_B = np.concatenate((dataset_B, dataset_Holiday, dataset_Total), axis=1)
-=======
     # dataSet_A = np.concatenate((dataset_A, dataset_Holiday, dataset_Total), axis=1)
     # dataSet_B = np.concatenate((dataset_B, dataset_Holiday, dataset_Total), axis=1)
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
     # if standard:
     #     # 数据进行归一化,数据归一化是不能将测试数据进行归一化
     #     dataset_a = max_min_standard(dataset_a)
     #     dataset_b = max_min_standard(dataset_b)
     #     dataset_total = max_min_standard(dataset_total)
-<<<<<<< HEAD
-    return dataSet_A, dataSet_B
-
-=======
     return dataset_A, dataset_B
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
 
 def get_fly_data():
     '''读取数据
         1、获取时间序列数据，将其转换为浮点型，进行最大最小值归一化处理
     '''
-<<<<<<< HEAD
-    fly_data = pd.read_csv("d://fly.csv")
-    dataset = fly_data.values               # 获得csv的值
-    dataset = dataset[:, 2]                 # 获取第三列数据
-    max_min_standard(dataset)
-=======
     fly_data = pd.read_csv("/2020/python/djML/water_predict/fly.csv")
     dataset = fly_data.values               # 获得csv的值
     dataset = dataset[:, 2]                 # 获取第三列数据
     dataset = dataset.astype('float32')             # 将数据转换为浮点型
     return dataset
     # max_min_standard(dataset)
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
 
 def split_data(data_X, data_Y, train_precent = 0.7):
     '''划分训练集和测试集，70% 作为训练集
@@ -297,17 +210,6 @@ def split_data(data_X, data_Y, train_precent = 0.7):
     train_Y = data_Y[:train_size]
     test_X = data_X[train_size:]
     test_Y = data_Y[train_size:]
-<<<<<<< HEAD
-
-    # 归一化
-    train_X = (train_X - train_X.mean(axis=0)) / train_X.std(axis=0)
-    train_Y = (train_Y - train_Y.mean(axis=0)) / train_Y.std(axis=0)
-
-    # 转换为模型可以识别的数据格式，转换为tensor类型
-    # train_X = train_X.reshape(-1, 1, LOOK_BACK)
-    # train_Y = train_Y.reshape(-1, 1, 1)
-    # test_X = test_X.reshape(-1, 1, LOOK_BACK)
-=======
     train_max = train_X.max()
     train_min = train_X.min()
     train_y_max = train_Y.max()
@@ -321,7 +223,6 @@ def split_data(data_X, data_Y, train_precent = 0.7):
     train_X = train_X.reshape(-1, INPUT_DATA_DIM, LOOK_BACK)
     train_Y = train_Y.reshape(-1, 1, 1)
     test_X = test_X.reshape(-1, INPUT_DATA_DIM, LOOK_BACK)
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
 
     train_x = torch.from_numpy(train_X)
     train_y = torch.from_numpy(train_Y)
@@ -331,11 +232,7 @@ def split_data(data_X, data_Y, train_precent = 0.7):
 
 def create_dataset(dataset, look_back=LOOK_BACK):
     '''生成训练集
-<<<<<<< HEAD
-        1、遍历时间序列数据每look_back为一条数据， 第i+look_back的最后一个未为样本值
-=======
         1、遍历时间序列数据每look_back为一条数据， 第i+look_back的最后一个数据为样本值
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
     '''
     dataX, dataY = [], []
     for i in range(len(dataset) - look_back):
@@ -344,29 +241,6 @@ def create_dataset(dataset, look_back=LOOK_BACK):
         dataY.append(dataset[i + look_back][-1])
     return np.array(dataX), np.array(dataY)
 
-<<<<<<< HEAD
-
-def train():
-    ''''''
-    print("读取数据")
-    # fly_data = get_fly_data()
-    dataset_A, dataset_B = get_water_data("d://water_train.csv")
-    dataset_a_X, dataset_a_Y = create_dataset(dataset_A)
-    dataset_b_X, dataset_b_Y = create_dataset(dataset_B)
-    # print(dataset_b_X.shape, dataset_b_Y.shape)
-    # dataset_total_X, dataset_total_Y = create_dataset(dataset_total)
-    # dataset_holiday_X, dataset_holiday_Y = create_dataset(dataset_holiday)
-
-    # # 创建好输入输出
-    # # data_X, data_Y = create_dataset(fly_data)
-    train_a_x, train_a_y, test_a_x, test_a_y = split_data(dataset_a_X, dataset_a_Y)
-    train_b_x, train_b_y, test_b_x, test_b_y = split_data(dataset_b_X, dataset_b_Y)
-    # train_total_x, train_total_y, test_total_x = split_data(dataset_total_X, dataset_total_Y)
-    # train_holiday_x, train_holiday_y, test_holiday_x = split_data(dataset_holiday_X, dataset_holiday_Y)
-    # print(train_holiday_x.shape)
-    IS_TRAIN = True
-    model = train_LSTM(train_a_x, train_a_y, train_b_x, train_b_y)
-=======
 def create_fly_dataset(dataset, look_back=LOOK_BACK):
     '''生成训练集
         1、遍历时间序列数据每look_back为一条数据， 第i+look_back的最后一个数据为样本值
@@ -397,32 +271,15 @@ def train():
     model = train_LSTM(train_a_x, train_a_y, train_b_x, train_b_y)
     print(test_a_x.shape, test_b_x.shape)
     test_model(model, test_a_x, test_b_x)
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
     return model, test_a_x, test_a_y, test_b_x, test_b_y
 
 def test():
     ''''''
-<<<<<<< HEAD
-    IS_TRAIN = False
-
-    test_dataset_a, test_dataset_b, test_dataset_total, test_dataset_holiday = get_water_data("d://water_test.csv", False)
-=======
     test_dataset_a, test_dataset_b, test_dataset_total, test_dataset_holiday = get_water_data(test_data_path)
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
     test_dataset_a_X, test_dataset_a_Y = create_dataset(test_dataset_a)
     test_dataset_b_X, test_dataset_b_Y = create_dataset(test_dataset_b)
     test_dataset_a_X, test_dataset_a_Y, test_data_a_test = split_data(test_dataset_a_X, test_dataset_a_Y, 1)
     test_dataset_b_X, test_dataset_b_Y, test_data_b_test = split_data(test_dataset_b_X, test_dataset_b_Y, 1)
-<<<<<<< HEAD
-    test_holiday_x, test_holiday_y, test_holiday_x = split_data(dataset_holiday_X, dataset_holiday_Y, 1)
-    test_model(model, test_dataset_a_X, test_dataset_b_X, test_holiday_x)
-
-if __name__ == "__main__":
-    model, test_a_x, test_a_y, test_b_x, test_b_y = train()
-    test_model(model, test_a_x, test_b_x)
-
-    # print(train_x, train_y)
-=======
     # test_holiday_x, test_holiday_y, test_holiday_x = split_data(dataset_holiday_X, dataset_holiday_Y, 1)
     test_model(model, test_dataset_a_X, test_dataset_b_X)
 
@@ -440,4 +297,3 @@ if __name__ == "__main__":
 
     # print(train_x, train_y)
     # train_fly()
->>>>>>> 6c45ca7221bd98b0afccf6b5579d5c70af1539bb
