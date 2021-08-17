@@ -1,7 +1,10 @@
 
 import sys
+import cv2
 import torch
+import random
 import torchvision
+import torchvision.transforms as transforms
 from PIL import Image
 import time
 import numpy as np
@@ -24,12 +27,23 @@ class PersonClothesDataset(torch.utils.data.Dataset):
         self.imageRoot = imageRoot
         self.imgs = self.list_files()
         self.class_dict = {class_name: i for i, class_name in enumerate(self.class_names)}
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean = (0.5, 0.5, 0.5), std = (0.5, 0.5, 0.5))
+            ]
+        )
         print('read ' + str(len(self.imgs)) + (f' training examples' if is_train else f' validation examples'))
 
     def __getitem__(self, idx):
         imgName = self.imgs[idx]
-        labels = self._get_annotation(imgName.replace("jpg", "xml"))
+        bboxes, labels = self._get_annotation(imgName.replace("jpg", "xml"))
         image = self._read_image(imgName)
+        # image, bboxes = random_translate(image, bboxes)
+        image, bboxes = random_crop(image, bboxes)
+        image, bboxes = random_horizontal_flip(image, bboxes)
+        image, bboxes = random_bright(image, bboxes)
+
+        labels = np.c_[labels, bboxes]
         return image, labels
 
     def list_files(self):
@@ -48,6 +62,7 @@ class PersonClothesDataset(torch.utils.data.Dataset):
         annotation_file = os.path.join(self.imageRoot,  "%s" % labelname)
         objects = ET.parse(annotation_file).findall("object")
         boxes = []
+        labels = []
         for obj in objects:
             class_name = obj.find('name').text.lower().strip()
             bbox = obj.find('bndbox')
@@ -56,9 +71,10 @@ class PersonClothesDataset(torch.utils.data.Dataset):
             y1 = float(bbox.find('ymin').text) - 1
             x2 = float(bbox.find('xmax').text) - 1
             y2 = float(bbox.find('ymax').text) - 1
-            boxes.append([self.class_dict[class_name], x1 / 1920, y1 / 1080, x2 / 1920, y2 / 1080] )
+            boxes.append([x1 / 1920, y1 / 1080, x2 / 1920, y2 / 1080] )
+            labels.append([self.class_dict[class_name]])
 
-        return np.array(boxes, dtype=np.float32)
+        return np.array(boxes, dtype=np.float32), np.array(labels, dtype=np.float32)
 
     def get_img_info(self, labelname):
         annotation_file = os.path.join(self.imageRoot, "%s" % labelname)
@@ -68,9 +84,11 @@ class PersonClothesDataset(torch.utils.data.Dataset):
         return {"height": im_info[0], "width": im_info[1]}
 
     def _read_image(self, imagename):
-        image = torchvision.io.read_image(os.path.join(self.imageRoot, f'{imagename}'))
-        image = image.float()
-        image = (image- image.mean()) / image.std()
+        image = Image.open(os.path.join(self.imageRoot, f'{imagename}'))
+        # image = torchvision.io.read_image(os.path.join(self.imageRoot, f'{imagename}'))
+        # image = image.float()        
+        # image = (image- image.mean()) / image.std()
+        image = self.transform(image)
         # image_file = os.path.join(self.imageRoot, "%s" % imagename)
         # image = Image.open(image_file).convert("RGB")
         # image = np.array(image)
@@ -108,22 +126,43 @@ def collate_fn(data):
  
     return batch_imgs,batch_boxes,batch_classes
 
+
 def dataset_collate(batch):
-    images = []
+    '''每个batch中数据的shape要完全一致，因此需要将数据全部保持最小的shape或是补充到最大的shape
+        collate_fn的作用是把[(data, label),(data, label)...]转化成([data, data...],[label,label...])
+        这里图像shape是一致的因此可以不需要修改，而label的shape是不同的因此需要进行修改
+    '''
+    batch.sort(key=lambda x: len(x[1]), reverse=False)  # 按照数据长度升序排序
+
+    # print(batch[0][1], batch[1][1])
+    # print("-------------------------------")
+    images = None
     bboxes = None
-    for img, box in batch:
-        images.append(img)
+    max_len = len(batch[len(batch) - 1][1])  # label最长的数据长度 
+
+    for bat in range(0, len(batch)): #
+        image = batch[bat][0]
+        image = np.expand_dims(image, axis=0)
+        # label长度不一致需要进行调整,首先计算与最大长度差，生成长度差数组，追加到原来数据后
+        box = batch[bat][1]
+        dif_max = max_len - len(box)
+        if dif_max > 0:
+            dif_maritx = np.zeros((dif_max, 4))
+            test = np.ones((dif_max, 1)) * -1
+            dif_maritx = np.c_[test,dif_maritx]
+            box = np.append(box, dif_maritx, axis=0)
         box = np.expand_dims(box, axis=0)
-        print("box: ", box.shape)
         if bboxes is None:
             bboxes = box
+            images = image
         else:
             bboxes = np.append(bboxes, box, axis=0)       
-            print("bboxes: ", bboxes.shape)
-    images = np.array(images)
-    bboxes = np.array(bboxes)
-    print(images.shape, bboxes.shape)
-    return images, bboxes
+            images = np.append(images, image, axis=0)              
+
+    images = torch.tensor(images, dtype=torch.float32)
+    boxes = torch.tensor(bboxes, dtype=torch.float32)
+    data_copy = (images, boxes)
+    return data_copy   
 
 def load_data_ITCVD(data_root, batch_size):
     ''' 加载ITCVD数据集
@@ -132,12 +171,108 @@ def load_data_ITCVD(data_root, batch_size):
     print("load train data, batch_size", batch_size)
     train_iter = torch.utils.data.DataLoader(
         PersonClothesDataset(True, data_root), batch_size, shuffle=True,
-        drop_last=True, num_workers=num_workers)
-        #, collate_fn=dataset_collate)
+        drop_last=True, num_workers=num_workers
+        , collate_fn=dataset_collate)
     # print("load test data")
 
     test_iter = torch.utils.data.DataLoader(
         PersonClothesDataset(False, "/2020/clothes_person_test/"), batch_size, drop_last=True,
-        num_workers=num_workers)
-        #, collate_fn=dataset_collate)
+        num_workers=num_workers
+        , collate_fn=dataset_collate)
     return train_iter, test_iter
+
+
+
+
+# 图像增强
+def random_translate(img, bboxes, p=0.5):
+    # 随机平移
+    print("translate: ", img.shape)
+    if random.random() < p:
+        _, h_img, w_img = img.shape
+        # 得到可以包含所有bbox的最大bbox
+        max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
+        max_l_trans = max_bbox[0]
+        max_u_trans = max_bbox[1]
+        max_r_trans = w_img - max_bbox[2]
+        max_d_trans = h_img - max_bbox[3]
+ 
+        tx = random.uniform(-(max_l_trans - 1), (max_r_trans - 1))
+        ty = random.uniform(-(max_u_trans - 1), (max_d_trans - 1))
+ 
+        M = np.array([[1, 0, tx], [0, 1, ty]])
+        print(M)
+        img = cv2.warpAffine(img, M, (w_img, h_img))
+ 
+        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] + tx
+        bboxes[:, [1, 3]] = bboxes[:, [1, 3]] + ty
+    return img, bboxes
+ 
+ 
+def random_crop(img, bboxes, p=0.5):
+    # 随机裁剪
+    if random.random() < p:
+        h_img, w_img, _ = img.shape
+        # 得到可以包含所有bbox的最大bbox
+        max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
+        max_l_trans = max_bbox[0]
+        max_u_trans = max_bbox[1]
+        max_r_trans = w_img - max_bbox[2]
+        max_d_trans = h_img - max_bbox[3]
+ 
+        crop_xmin = max(0, int(max_bbox[0] - random.uniform(0, max_l_trans)))
+        crop_ymin = max(0, int(max_bbox[1] - random.uniform(0, max_u_trans)))
+        crop_xmax = max(w_img, int(max_bbox[2] + random.uniform(0, max_r_trans)))
+        crop_ymax = max(h_img, int(max_bbox[3] + random.uniform(0, max_d_trans)))
+ 
+        img = img[crop_ymin : crop_ymax, crop_xmin : crop_xmax]
+ 
+        bboxes[:, [0, 2]] = bboxes[:, [0, 2]] - crop_xmin
+        bboxes[:, [1, 3]] = bboxes[:, [1, 3]] - crop_ymin
+    return img, bboxes
+ 
+ 
+# 随机水平反转
+def random_horizontal_flip(img, bboxes, p=0.5):
+    if random.random() < p:
+        _, w_img, _ = img.shape
+        img = img[:, ::-1, :]
+        bboxes[:, [0, 2]] = w_img - bboxes[:, [2, 0]]
+    return img, bboxes
+
+
+# 随机对比度和亮度 (概率：0.5)
+def random_bright(img, bboxes, p=0.5, lower=0.5, upper=1.5):
+    if random.random() < p:
+        mean = np.mean(img)
+        img = img - mean
+        img = img * random.uniform(lower, upper) + mean * random.uniform(lower, upper)  # 亮度
+        img = img / 255.
+    return img, bboxes
+ 
+ 
+# 随机变换通道
+def random_swap(im, bboxes, p=0.5):
+    perms = ((0, 1, 2), (0, 2, 1),
+            (1, 0, 2), (1, 2, 0),
+            (2, 0, 1), (2, 1, 0))
+    if random.random() < p:
+        swap = perms[random.randrange(0, len(perms))]
+        im[:, :, (0, 1, 2)] = im[:, :, swap]
+    return im, bboxes
+ 
+ 
+# 随机变换饱和度
+def random_saturation(im, bboxes, p=0.5, lower=0.5, upper=1.5):
+    if random.random() < p:
+        im[:, :, 1] = im[:, :, 1] * random.uniform(lower, upper)
+    return im, bboxes
+ 
+ 
+# 随机变换色度(HSV空间下(-180, 180))
+def random_hue(im, bboxes, p=0.5, delta=18.0):
+    if random.random() < p:
+        im[:, :, 0] = im[:, :, 0] + random.uniform(-delta, delta)
+        im[:, :, 0][im[:, :, 0] > 360.0] = im[:, :, 0][im[:, :, 0] > 360.0] - 360.0
+        im[:, :, 0][im[:, :, 0] < 0.0] = im[:, :, 0][im[:, :, 0] < 0.0] + 360.0
+    return im, bboxes

@@ -43,17 +43,34 @@ def testAnchors():
     ])
     plt.savefig(CURRENT_IMAGE_PATH + "temp.jpg", dpi=580)
 
+
+def showIMGAndLabel():
+    '''显示图像与label并将其保存为图像'''
+    device = torch.device('cpu')
+    train_iter, _ = load_data_ITCVD(DATA_ROOT, 1)  
+    num_epochs = 1 
+    for i, (features, labels) in enumerate(train_iter):
+        plt.cla()            
+        _, h, w = features[0].shape   
+        fig = plt.imshow(np.transpose(((features[0] + 2) * 50).int(), (1, 2, 0)))
+        for label in labels[0]:
+            cls_ = label[0]
+            bbox = [label[1:5] * torch.tensor((w, h, w, h), device=device)]        
+            print("draw bbox", bbox, cls_.item())
+            show_bboxes(fig.axes, bbox, '%s' % cls_.item(), 'w')
+        plt.savefig(CURRENT_IMAGE_PATH + str(i) + "_Person_temp.jpg", dpi=580)
+
 def trainITCVD(resume = False):
     '''训练ITCVD数据集'''
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    train_iter, test_iter = load_data_ITCVD(DATA_ROOT, 1)
+    train_iter, test_iter = load_data_ITCVD(DATA_ROOT, 4)
     net = TinySSD(num_classes=4)
-    trainer = torch.optim.SGD(net.parameters(), lr=0.05, weight_decay=5e-4)
+    trainer = torch.optim.SGD(net.parameters(), momentum=0.9, lr=0.0005, weight_decay=5e-4)
     num_epochs, timer = 200, Timer()   
     net=net.to(device)
     if resume:
-        net.load_state_dict(torch.load('/2020/clothes_person_ssd.pkl'))
+        net.load_state_dict(torch.load('/2020/clothes_person_ssd_last.pkl'))
     # 定义两类损失函数
     cls_loss = nn.CrossEntropyLoss(reduction='none')
     bbox_loss=nn.L1Loss(reduction='none')
@@ -64,11 +81,10 @@ def trainITCVD(resume = False):
         metric = Accumulator(4)
         net.train()
         cls_total = 0
-        bbox_total = 0
+        bbox_total = 0        
         for i, (features, labels) in enumerate(train_iter):
-            # print(features, labels)
-            if labels.shape[1] == 0:
-                continue
+            # print(features.shape, labels.shape)            
+
             timer.start()
             trainer.zero_grad()
             X, Y = features.to(device), labels.to(device)
@@ -86,8 +102,8 @@ def trainITCVD(resume = False):
                     bbox_labels.numel())
             cls_total = cls_total + (1 - metric[0] / metric[1])
             bbox_total = bbox_total + metric[2] / metric[3]
-            if i % 10 == 0:
-                process_bar((i + 1) / numData, cls_total / (i + 1), bbox_total / (i+1), epoch + 1, start_str='', end_str='100%', total_length=35)
+            # if i % 2 == 0:
+            process_bar((i + 1) / numData, cls_total / (i + 1), bbox_total / (i+1), epoch + 1, start_str='', end_str='100%', total_length=35)
         cls_err, bbox_mae = 1 - metric[0] / metric[1], metric[2] / metric[3]
         if (epoch + 1) % 10 == 0:
             # 每隔50次epoch保存模型
@@ -114,9 +130,6 @@ def predictionITCVD():
     for i, (features, labels) in enumerate(test_iter):
         if i > 10:
             break
-        plt.cla()
-        fig = plt.imshow(np.transpose(((features[0] + 2) * 50).int(), (1, 2, 0)))
-
 
         X, Y = features.to(device), labels.to(device)
         # 生成多尺度的锚框，为每个锚框预测类别和偏移量
@@ -127,26 +140,27 @@ def predictionITCVD():
         output = multibox_detection(cls_probs, bbox_preds, anchors)
         idx = [i for i, row in enumerate(output[0]) if row[0] != -1]
         output = output[0, idx]
-        threshold = 0.02
-        b, w, h = features[0].shape
+        threshold = 0.2
+        b, h, w = features[0].shape
         print(i, b, w, h)
         plt.cla()
-        fig = plt.imshow(np.transpose(features[0].int(), (1, 2, 0)))
+        # fig = plt.imshow(np.transpose(features[0].int(), (1, 2, 0)))
+        fig = plt.imshow(np.transpose(((features[0] + 2) * 50).int(), (1, 2, 0)))
         for row in output:
+            cls_ = int(row[0])
             score = float(row[1])
             if score < threshold:
                 continue
             bbox = [row[2:6] * torch.tensor((w, h, w, h), device=device_cpu)]        
-            print("draw bbox", bbox, score)
+            print("draw bbox", bbox, score, cls_)
             show_bboxes(fig.axes, bbox, '%.2f' % score, 'w')
-            # show_bboxes(fig.axes, bbox, '%.2f' % score, 'w')
-        plt.savefig(CURRENT_IMAGE_PATH + str(i) + "_Person_temp.jpg", dpi=580)
+        plt.savefig(CURRENT_IMAGE_PATH + str(i) + "_Person_predict.jpg", dpi=580)
 
         # # 为每个锚框标注类别和偏移量
         # bbox_labels, bbox_masks, cls_labels = multibox_target(anchors, Y)
         # print(anchors[0][0], cls_preds[0][0], bbox_preds[0][0])
 
 if __name__ == "__main__":
-    # trainITCVD()
-    predictionITCVD()
+    trainITCVD(True)
+    # predictionITCVD()
     # testAnchors()
