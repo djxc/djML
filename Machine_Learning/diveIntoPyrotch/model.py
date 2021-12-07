@@ -197,7 +197,6 @@ class AlexNet(nn.Module):
         return output
 
 # VGG网络类似于AlexNet与LeNet，都为卷积层后跟全连接层，卷积模块为多个VGG块组成
-
 def VGG_Block(num_convs, in_channels, out_channels):
     '''VGG块
         1、vgg即为将简单的vgg块叠加，构建深层网络
