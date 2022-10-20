@@ -5,14 +5,14 @@ import torch
 import torchvision
 import numpy as np
 import torch.nn as nn
-from data import mixup_data, cutmix_data, flip_data
+from data import mixup_data, cutmix_data, rotate_data
 from model import createResNet, ResNet34
 from data import load_leaf_data, load_test_leaf_data, categories
 from efficientnet_pytorch import EfficientNet
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 resume = True
-batchSize = 6
+batchSize = 12
  
 log = ["{} batchSize: {}\n".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), batchSize)]
 
@@ -41,6 +41,7 @@ def train():
     # 定义两类损失函数
     loss = torch.nn.CrossEntropyLoss()
     # loss = mixup_criterion
+    log_file = open(r"D:\Data\model\train_log_{}.txt".format(model_name), "a+")
     for epoch in range(num_epochs):
         startTime = time.time()
         # 训练精确度的和，训练精确度的和中的示例数
@@ -75,8 +76,8 @@ def train():
             epoch + 1, loss_total, endTime - startTime))        
         print('epoch %d, loss %.4f, use time:%.2fs' % (
             epoch + 1, loss_total, endTime - startTime))
-    with open("E:\Data\model\train_log_%s.txt" % model_name, "w+") as logFile:
-        logFile.writelines(log)
+        log_file.writelines(log)
+    log_file.close()
 
 def load_net(net):
     """加载模型的参数"""
@@ -110,7 +111,7 @@ def data_augmentation():
     elif random_num <= 2/4:
         X, Y, y_b, lam = cutmix_data(X, Y, use_cuda=True)
     elif random_num <= 3/4:
-        X, Y, y_b, lam = flip_data(X, Y, use_cuda=True)
+        X, Y, y_b, lam = rotate_data(X, Y, use_cuda=True)
     else:
         X, Y, y_b, lam = mixup_data(X, Y, alpha=0, use_cuda=True)
     X, Y, y_b = map(torch.autograd.Variable, (X, Y, y_b))
@@ -169,5 +170,5 @@ if __name__ == "__main__":
     # print(net)
     # print(ResNet34())
     # print(torchvision.models.resnet50(pretrained=False, num_classes=176))
-    # train()
-    verify()
+    train()
+    # verify()

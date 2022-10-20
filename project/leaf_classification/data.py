@@ -156,15 +156,14 @@ def load_test_leaf_data(batch_size, num_workers = 4):
 def mixup_data(x, y, alpha=1.0, use_cuda=True):
     """ Mixup 数据增强 -> 随机叠加两张图像 """
     if alpha > 0:
-        lam = np.random.beta(alpha, alpha)
+        lam = np.random.beta(alpha, alpha)  # β分布
     else:
         lam = 1
 
     batch_size = x.size()[0]
+    index = torch.randperm(batch_size)
     if use_cuda:
         index = torch.randperm(batch_size).cuda()
-    else:
-        index = torch.randperm(batch_size)
 
     mixed_x = lam * x + (1 - lam) * x[index, :]
     y_a, y_b = y, y[index]
@@ -190,8 +189,8 @@ def color(x, y, alpha=1.0, use_cuda=True):
     return new_x, y_a, y_b, lam
 
 
-def flip_data(x, y, alpha=1.0, use_cuda=True):
-    '''图像按一定角度翻转'''
+def rotate_data(x, y, alpha=1.0, use_cuda=True):
+    '''图像按一定角度旋转'''
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
@@ -215,8 +214,11 @@ def rand_bbox(size, lam):
     cut_h = np.int(H * cut_rat)
 
     # uniform
-    cx = np.random.randint(W)
-    cy = np.random.randint(H)
+    # cx = np.random.randint(W)
+    # cy = np.random.randint(H)
+
+    cx = np.int(W / 2)
+    cy = np.int(H / 2)
 
     bbx1 = np.clip(cx - cut_w // 2, 0, W)
     bby1 = np.clip(cy - cut_h // 2, 0, H)
