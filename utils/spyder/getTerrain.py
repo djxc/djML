@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import os
-import  requests
+
 import PIL.Image as Image
+import requests
+
 
 # https://assets.cesium.com/1/1/3/0.terrain?extensions=octvertexnormals-watermask-metadata&v=1.2.0
 def image_joint(image_list,opt):#opt= vertical ,horizontal 选择水平显示拼接的图像，或者垂直拼接
