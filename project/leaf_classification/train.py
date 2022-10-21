@@ -8,17 +8,17 @@ import torch.nn as nn
 from data import mixup_data, cutmix_data, rotate_data
 from model import createResNet, ResNet34
 from data import load_leaf_data, load_test_leaf_data, categories
-from efficientnet_pytorch import EfficientNet
+# from efficientnet_pytorch import EfficientNet
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 resume = True
-batchSize = 12
+batchSize = 24
  
 log = ["{} batchSize: {}\n".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), batchSize)]
 
 model_name = "resNet"
 
-model_path = r"D:\Data\model\leaf_classify\resnet"
+model_path = r"E:\Data\model\leaf_classify\resnet"
 
 def train():
     '''训练
@@ -39,9 +39,13 @@ def train():
     if resume:
         load_net(net)
     # 定义两类损失函数
-    loss = torch.nn.CrossEntropyLoss()
-    # loss = mixup_criterion
-    log_file = open(r"D:\Data\model\train_log_{}.txt".format(model_name), "a+")
+    # -----------------
+    # loss = torch.nn.CrossEntropyLoss()
+    # -----------------
+    loss = mixup_criterion
+    # -----------------
+
+    log_file = open(r"E:\Data\model\train_log_{}.txt".format(model_name), "a+")
     for epoch in range(num_epochs):
         startTime = time.time()
         # 训练精确度的和，训练精确度的和中的示例数
@@ -51,14 +55,18 @@ def train():
         for i, (features, labels) in enumerate(train_data):          
             trainer.zero_grad()
             X, Y = features.to(device), labels.to(device)
-            # X, Y, y_b, lam = data_augmentation()
+            X, Y, y_b, lam = data_augmentation(X, Y)
 
             y_hat = net(X)            
             Y = Y.squeeze(dim=1)
+            
+            # -----------------
+            # l = loss(y_hat, Y)
+            # -----------------
+            y_b = y_b.squeeze(dim=1)
+            l = loss(y_hat, Y, y_b, lam)
+            # -----------------
 
-            l = loss(y_hat, Y)
-            # y_b = y_b.squeeze(dim=1)
-            # l = loss(y_hat, Y, y_b, lam)
             trainer.zero_grad()
             l.backward()
             trainer.step()
@@ -103,17 +111,20 @@ def create_net(net_name: str, class_num: int):
     return net
 
 
-def data_augmentation():
+def data_augmentation(X, Y):
     # 数据增强
+    use_cuda = False
+    if torch.cuda.is_available():
+        use_cuda = True
     random_num = np.random.random()
     if random_num <= 1/4:
-        X, Y, y_b, lam = mixup_data(X, Y, use_cuda=True)
+        X, Y, y_b, lam = mixup_data(X, Y, use_cuda=use_cuda)
     elif random_num <= 2/4:
-        X, Y, y_b, lam = cutmix_data(X, Y, use_cuda=True)
+        X, Y, y_b, lam = cutmix_data(X, Y, use_cuda=use_cuda)
     elif random_num <= 3/4:
-        X, Y, y_b, lam = rotate_data(X, Y, use_cuda=True)
+        X, Y, y_b, lam = rotate_data(X, Y, use_cuda=use_cuda)
     else:
-        X, Y, y_b, lam = mixup_data(X, Y, alpha=0, use_cuda=True)
+        X, Y, y_b, lam = mixup_data(X, Y, alpha=0, use_cuda=use_cuda)
     X, Y, y_b = map(torch.autograd.Variable, (X, Y, y_b))
     return X, Y, y_b, lam
 
