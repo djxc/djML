@@ -12,7 +12,7 @@ from efficientnet_pytorch import EfficientNet
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 resume = True
-batchSize = 12
+batchSize = 24
  
 log = ["{} batchSize: {}\n".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), batchSize)]
 
@@ -34,7 +34,7 @@ def train():
     train_data, test_data = load_leaf_data(batchSize)
     best_acc = 0
     net = create_net(model_name, 176)
-    trainer = torch.optim.SGD(net.parameters(), lr=0.01, weight_decay=5e-4)
+    trainer = torch.optim.SGD(net.parameters(), lr=0.005, weight_decay=5e-4)
     net = net.to(device)
     if resume:
         load_net(net)
@@ -72,11 +72,11 @@ def train():
         # 每10轮保存一次结果
         if epoch > 0 and (epoch + 1) % 10 == 0:
             save_net(net, "{}\\{}_epoch.pth".format(model_path, epoch))
-        log.append('epoch %d, loss %.4f, use time:%.2fs\n' % (
-            epoch + 1, loss_total, endTime - startTime))        
+        log_info = 'epoch %d, loss %.4f, use time:%.2fs\n' % (epoch + 1, loss_total, endTime - startTime)
+        log_file.write(log_info) 
+        log.append(log_info)        
         print('epoch %d, loss %.4f, use time:%.2fs' % (
             epoch + 1, loss_total, endTime - startTime))
-        log_file.writelines(log)
     log_file.close()
 
 def load_net(net):
