@@ -14,6 +14,8 @@
 该任务为分类任务，需要根据任务进行特定的数据增强方法。
 - 1、随机缩放裁剪，水平翻转
 - 2、随机擦除、mixup
+- 3、安装albumentations库，相比较torchvision，该库处理图像速度更快些。pip install albumentations -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com
+- 4、安装timm库，pip install timm -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com。timm库包括众多模型，可以直接使用。
 
 
 ## 训练方法
@@ -22,3 +24,5 @@
 
 ## 训练记录
 - 1、使用非预训练的resnet50，训练80轮，测试精度0.875
+
+
