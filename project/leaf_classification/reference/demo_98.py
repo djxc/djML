@@ -42,7 +42,7 @@ torch.cuda.manual_seed(seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
 
-root_path = r'E:\Data\MLData\classify\leaves-classify\\'
+root_path = r'D:\Data\MLData\classify\leaves-classify\\'
 labels_file_path = os.path.join(root_path, 'train.csv')
 sample_submission_path = os.path.join(root_path, 'test.csv')
 
@@ -175,7 +175,7 @@ params = {
     # 'model': 'resnet50d',
     'device': device,
     'lr': 1e-3,
-    'batch_size': 24, # 64
+    'batch_size': 16, # 64
     'num_workers': 0,
     'epochs': 50,
     'out_features': df['label'].nunique(),
