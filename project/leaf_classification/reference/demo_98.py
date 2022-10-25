@@ -63,6 +63,7 @@ def validate(val_loader, model, criterion, epoch, params):
         for i, (images, target) in enumerate(stream, start=1):
             images = images.to(params['device'], non_blocking=True)
             target = target.to(params['device'], non_blocking=True)
+            target = target.long()
             output = model(images)
             loss = criterion(output, target)
             f1_macro = calculate_f1_macro(output, target)
@@ -188,5 +189,46 @@ def valid_model():
     sub_df.to_csv('submission.csv', index=False)
     sub_df.head()
 
+
+def valid_model1():
+    df = params["df"]
+    sub_df = params["sub_df"]
+    label_inv_map = params["label_inv_map"]
+
+    # train_img, valid_img = df['image'], df['image']
+    test_paths = params["root_path"] + sub_df['image']
+
+    model_name = ['seresnext50_32x4d']
+    model_path_list = [
+        r'D:\Data\model\leaf_classify\checkpoints\seresnext50_32x4d_0flod_48epochs_accuracy0.97880_weights.pth',
+    ]
+    model = LeafNet(model_name[0])
+    model = model.to(params['device'])
+    model.load_state_dict(torch.load(model_path_list[0]))
+    model.eval()
+        
+    test_dataset = LeafDataset(images_filepaths=test_paths,
+                                labels=sub_df['image'],
+                                transform=get_valid_transforms())
+    test_loader = DataLoader(
+        test_dataset, batch_size=24, shuffle=False,
+        num_workers=10, pin_memory=True
+    )
+    preds = []
+    stream = tqdm(test_loader)
+    with torch.no_grad():
+        for i, (images, target) in enumerate(stream, start=1):
+            images = images.to(params['device'], non_blocking=True)
+            y_hat = model(images)
+            y_hat = y_hat.argmax(dim=-1).cpu().numpy().tolist()            
+            for oh, name in zip(y_hat, target):
+                lbs = label_inv_map[oh]
+                preds.append(dict(image=name, labels=lbs))
+    df_preds = pd.DataFrame(preds)
+    sub_df['label'] = df_preds['labels']
+    sub_df.to_csv('submission.csv', index=False)
+    sub_df.head()
+
 if __name__ == "__main__":
-    train_model()
+    # train_model()
+    valid_model1()
