@@ -175,7 +175,7 @@ params = {
     # 'model': 'resnet50d',
     'device': device,
     'lr': 1e-3,
-    'batch_size': 12, # 64
+    'batch_size': 24, # 64
     'num_workers': 0,
     'epochs': 50,
     'out_features': df['label'].nunique(),
@@ -278,8 +278,8 @@ def train_model():
 
         for epoch in range(1, params['epochs'] + 1):
             train(train_loader, model, criterion, optimizer, epoch, params)
-        #     acc = validate(val_loader, model, criterion, epoch, params)
-        #     torch.save(model.state_dict(), f"E:\Data\model\leaf_classify\checkpoints\{params['model']}_{k}flod_{epoch}epochs_accuracy{acc:.5f}_weights.pth")
+            acc = validate(val_loader, model, criterion, epoch, params)
+            torch.save(model.state_dict(), f"E:\Data\model\leaf_classify\checkpoints\{params['model']}_{k}flod_{epoch}epochs_accuracy{acc:.5f}_weights.pth")
 
 
 def valid_model():
