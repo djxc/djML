@@ -12,7 +12,7 @@ else:
 
 print(f'Using device: {device}')
 
-work_space = r"E:\Data"
+work_space = r"D:\Data"
 seed = 415
 
 os.environ['PYTHONHASHSEED'] = str(seed)
