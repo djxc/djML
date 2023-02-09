@@ -44,7 +44,7 @@ class LandUseNet():
         elif net_name == "resNet":
             net = createResNet()
         elif net_name == "resNet50_pre":
-            net = torchvision.models.resnet50(pretrained=True)
+            net = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.DEFAULT)
             # set_parameter_requires_grad(model_ft, False)  # 固定住前面的网络层
             num_ftrs = net.fc.in_features
             # 修改最后的全连接层

@@ -51,7 +51,7 @@ def train():
                 scheduler.step()
                 loss_total = loss_total + l
             endTime = time.time()
-            if epoch > 0 and epoch % 5 == 0:
+            if epoch > 0 and epoch % 1 == 0:
                 acc = predictNet(net, test_data, log_file)
                 if acc > best_acc:
                     best_acc = acc
@@ -60,7 +60,7 @@ def train():
             if epoch > 0 and (epoch + 1) % 10 == 0:
                 landuse_net.save("{}_epoch.pth".format( epoch))
 
-            log_info = 'epoch %d, loss %.4f, use time:%.2fs\n' % (epoch + 1, loss_total, endTime - startTime)
+            log_info = 'epoch %d, loss %.4f, use time:%.2fs, %s\n' % (epoch + 1, loss_total, endTime - startTime, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             log_file.write(log_info) 
             print(log_info)
         log_file.close()
