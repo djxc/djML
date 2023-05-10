@@ -20,7 +20,7 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         if self.mode == "test":
             image = self.__open_npy(image_path)
             return image
-        else:
+        elif self.mode in ["train", "verify"]:
             image = self.__open_npy(image_path)
             label_index = self.label_info.index(label)
             label = torch.zeros(1, 5).scatter_(1, torch.tensor([label_index]).unsqueeze(1), 1).squeeze()
@@ -30,6 +30,7 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         depthmap = np.load(npy_path)    #使用numpy载入npy文件
         depthmap = np.squeeze(depthmap, -1)
         depthmap = np.squeeze(depthmap, -1)
+        depthmap = torch.from_numpy(depthmap)
         return depthmap
 
     def __len__(self):
