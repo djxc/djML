@@ -19,7 +19,7 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         label = label.strip()
         if self.mode == "test":
             image = self.__open_npy(image_path)
-            return image
+            return (image, image_path)
         elif self.mode in ["train", "verify"]:
             image = self.__open_npy(image_path)
             label_index = self.label_info.index(label)

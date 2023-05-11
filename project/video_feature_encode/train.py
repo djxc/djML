@@ -106,38 +106,20 @@ def predictNet(net, test_data, log_file, batchSize):
     log_file.write(log_str)
     return acc
 
-def test(args):
-    import matplotlib.pyplot as plt
-    """测试模型，显示模型的输出结果"""
-    model = Unet(3, 1)
-    model.load_state_dict(torch.load(model_path +
-                                     args.ckpt, map_location='cpu'))        # 加载训练数据权重
-    liver_dataset = LUCCDataset("train.csv", trainOrTest=args.action)
-    dataloaders = DataLoader(liver_dataset, batch_size=1)
-    model.eval()
-
-    plt.ion()
-    with torch.no_grad():
-        dj = 0
-        for x, _ in dataloaders:
-            y = model(x)
-            img_y = torch.squeeze(y).numpy()
-            # x, y = img_y.shape
-            # for i in range(x):
-            #     for j in range(y):
-            #         if img_y[i, j] > 0:
-            #             img_y[i, j] = 255
-            #         else:
-            #             img_y[i, j] = 0
-            # im = Image.fromarray(img_y)
-            # im.show()
-            # if im.mode != 'RGB':
-            #     im = im.convert('RGB')
-            # im.save("predict_%3d.png"%dj)
-            # dj = dj + 1
-            plt.imshow(img_y)
-            plt.pause(5)
-        plt.show()
+def test(net):
+    ''' 测试 '''
+    test_video_feature_dataset = VideoFeatureDataset(verify_data_file, mode="test")
+    test_data = DataLoader(test_video_feature_dataset, batch_size=1, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
+    net.eval()
+    result = ""
+    for i, (features, image_path) in enumerate(test_data):     
+        X = features.to(device)
+        X = X.unsqueeze(0)
+        X = X.transpose(0, 1)
+        y_hat = net(X)
+        result_cls = y_hat.max(1, keepdim=True)[1]      
+        result = result + "{},{}\r\n".format(image_path, result_cls)
+    print(result)
 
 
 if __name__ == '__main__':
