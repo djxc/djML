@@ -46,28 +46,28 @@ class LeNet(nn.Module):
         self.conv2d_ksize = 5   
         self.conv = nn.Sequential(
             nn.Conv2d(in_channel, 6, self.conv2d_ksize), # in_channels, out_channels, kernel_size
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2), # kernel_size, stride
 
             nn.Conv2d(6, 16, self.conv2d_ksize),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),
 
             nn.Conv2d(16, 32, self.conv2d_ksize),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),
 
             nn.Conv2d(32, 64, self.conv2d_ksize),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),
         )
         self.fc = nn.Sequential(
             nn.Linear(1364 * 64, 512 * 8),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(512 * 8, 512),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(512, 128),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(128, out_channel)
         )
     def forward(self, img):

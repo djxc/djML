@@ -7,19 +7,17 @@ import os
 import torch
 import argparse
 import time
-from PIL import Image
 from model import MLPModel, LeNet
 from torch import nn, optim
 from tqdm import tqdm
 
 from data import VideoFeatureDataset
 from torch.utils.data import DataLoader
-from torchvision.transforms import transforms
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-num_epochs = 20
-lr = 0.01
+num_epochs = 50
+lr = 0.001
 
 workspace_root = r"E:\Data\MLData\视觉特征编码"
 train_data_file = os.path.join(workspace_root, "train\\train.csv")
@@ -37,8 +35,8 @@ def train(args):
     #     model.load_state_dict(torch.load(os.path.join(rootPath, args.ckpt)))        # 加载训练数据权重
     batch_size = args.batch_size                    # 每次计算的batch大小
     criterion = nn.CrossEntropyLoss()              # 损失函数
-    optimizer = optim.SGD(model.parameters(), lr=lr)      # 优化函数
-
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)      # 优化函数
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
     train_video_feature_dataset = VideoFeatureDataset(train_data_file, mode="train")
     train_data = DataLoader(train_video_feature_dataset, batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
 
@@ -46,13 +44,15 @@ def train(args):
     verify_data = DataLoader(verify_video_feature_dataset, batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
 
     log_file = open(r"{}\train_log_{}_pre.txt".format(workspace_root, model_name), "a+")
-    for epoch in range(num_epochs):
-        if epoch > 0 and epoch % 5 == 0:
-            acc = predictNet(model, verify_data, log_file, batch_size)         
+    log_file.write("{} start training……\r\n".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))) 
+    best_acc = 0
+    for epoch in range(num_epochs):           
         epoch_loss = 0
         model.train()
         startTime = time.time()
-        with tqdm(total=len(train_data.dataset), desc=f'Epoch {epoch + 1}/{num_epochs}', unit='img') as pbar:
+        current_lr = optimizer.state_dict()['param_groups'][0]['lr']
+        pbar_desc = 'Epoch {0:d}/{1:d}|lr:{2:1.5f}'.format(epoch + 1, num_epochs, current_lr)
+        with tqdm(total=len(train_data.dataset), desc=pbar_desc, unit='img') as pbar:
             for step, (x, y) in enumerate(train_data):
                 # 将输入的要素用gpu计算
                 inputs = x.to(device)
@@ -67,14 +67,23 @@ def train(args):
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
                 epoch_loss += loss.item()
-                pbar.set_postfix(**{'loss': loss.item()})
+                pbar.set_postfix(**{'loss': '{0:1.5f}'.format(epoch_loss/(step + 1))})
                 pbar.update(x.shape[0])     
+        
+        if epoch > 0 and (epoch + 1) % 2 == 0:
+            acc = predictNet(model, verify_data, log_file, batch_size)    
+            if acc > best_acc:
+                best_acc = acc
+                print("save best model, epoch:{}".format(epoch))
+                torch.save(model.state_dict(), os.path.join(workspace_root, 'best_model.pth'))        # 保存模型参数，使用时直接加载保存的path文件
+        # 每10轮保存一次结果
+        if epoch > 0 and (epoch + 1) % 5 == 0:
+            torch.save(model.state_dict(), os.path.join(workspace_root, 'wight_{}.pth'.format(epoch)))        # 保存模型参数，使用时直接加载保存的path文件
         endTime = time.time()
-        log_info = 'epoch %d, loss %.4f, use time:%.2fs\n' % (epoch + 1, epoch_loss/step, endTime - startTime)
-        print(log_info)
+        log_info = 'epoch %d, loss %.4f, lr %.6f, use time:%.2fs\n' % (epoch + 1, epoch_loss/step, current_lr, endTime - startTime)
         log_file.write(log_info) 
+        scheduler.step()
 
-    # torch.save(model.state_dict(), os.path.join(rootPath, 'weights_unet_car_%d.pth' % epoch))        # 保存模型参数，使用时直接加载保存的path文件
 
 
 def predictNet(net, test_data, log_file, batchSize):
