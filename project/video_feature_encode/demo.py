@@ -90,12 +90,22 @@ def split_train_verfy(label_path, radio=0.3):
     with open(os.path.join(root_path, "verify.csv"), "w+", encoding="utf-8") as verify_file:
         verify_file.write(verify_list)
 
-
+def create_test_data_files():
+    test_root = r"E:\Data\MLData\视觉特征编码\test_A"
+    feature_root = os.path.join(test_root, "test_A_feature")
+    test_files = os.listdir(feature_root)
+    test_file_list = ""
+    for test_f in test_files:
+        test_f_path = os.path.join(feature_root, test_f)
+        test_file_list = test_file_list + test_f_path + ",\n"
+    with open(os.path.join(test_root, "test.csv"), "w+", encoding="utf-8") as train_file:
+        train_file.write(test_file_list)
 
 if __name__ == "__main__":
     # load_npy()
     # statistic_label(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
     # save_npy_as_image(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
-    split_train_verfy(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
+    # split_train_verfy(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
+    create_test_data_files()
 
 

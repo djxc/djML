@@ -15,12 +15,13 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         print("read {} {} examples".format(len(self.imageDatas), mode))        
 
     def __getitem__(self, idx):
-        image_path, label, _ = self.imageDatas[idx].replace("\n", "").split(",")
-        label = label.strip()
         if self.mode == "test":
+            image_path = self.imageDatas[idx].replace(",\n", "")
             image = self.__open_npy(image_path)
             return (image, image_path)
         elif self.mode in ["train", "verify"]:
+            image_path, label, _ = self.imageDatas[idx].replace("\n", "").split(",")
+            label = label.strip()
             image = self.__open_npy(image_path)
             label_index = self.label_info.index(label)
             label = torch.zeros(1, 5).scatter_(1, torch.tensor([label_index]).unsqueeze(1), 1).squeeze()

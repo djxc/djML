@@ -7,6 +7,8 @@ import os
 import torch
 import argparse
 import time
+import json
+from pathlib import Path
 from model import MLPModel, LeNet
 from torch import nn, optim
 from tqdm import tqdm
@@ -16,12 +18,13 @@ from torch.utils.data import DataLoader
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-num_epochs = 50
+num_epochs = 100
 lr = 0.001
 
 workspace_root = r"E:\Data\MLData\视觉特征编码"
 train_data_file = os.path.join(workspace_root, "train\\train.csv")
 verify_data_file = os.path.join(workspace_root, "train\\verify.csv")
+test_data_file = os.path.join(workspace_root, "test_A\\test.csv")
 model_name = "LeNet"
 
 def train(args):
@@ -30,21 +33,25 @@ def train(args):
         2、加载数据，使用batch
         3、训练模型，输入
     """
-    model = LeNet(1, 5).to(device)
-    # if args.ckpt:
-    #     model.load_state_dict(torch.load(os.path.join(rootPath, args.ckpt)))        # 加载训练数据权重
+    log_file = open(r"{}\train_log_{}_pre.txt".format(workspace_root, model_name), "a+")
+    log_file.write("{} start training……\r\n".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))) 
+    
     batch_size = args.batch_size                    # 每次计算的batch大小
-    criterion = nn.CrossEntropyLoss()              # 损失函数
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)      # 优化函数
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+
     train_video_feature_dataset = VideoFeatureDataset(train_data_file, mode="train")
     train_data = DataLoader(train_video_feature_dataset, batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
 
     verify_video_feature_dataset = VideoFeatureDataset(verify_data_file, mode="verify")
     verify_data = DataLoader(verify_video_feature_dataset, batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
 
-    log_file = open(r"{}\train_log_{}_pre.txt".format(workspace_root, model_name), "a+")
-    log_file.write("{} start training……\r\n".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))) 
+    model = LeNet(1, 5).to(device)
+    if args.resume:
+        model.load_state_dict(torch.load(os.path.join(workspace_root, args.resume)))        # 加载训练数据权重
+        print("load model {}".format(args.resume))
+    criterion = nn.CrossEntropyLoss()              # 损失函数
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)      # 优化函数
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
+
     best_acc = 0
     for epoch in range(num_epochs):           
         epoch_loss = 0
@@ -91,35 +98,61 @@ def predictNet(net, test_data, log_file, batchSize):
     startTime = time.time()
     accNum = 0
     net.eval()
+    verify_result = {
+        "0": {"total": 0, "error": 0},
+        "1": {"total": 0, "error": 0},
+        "2": {"total": 0, "error": 0},
+        "3": {"total": 0, "error": 0},
+        "4": {"total": 0, "error": 0}
+        }
     for i, (features, labels) in enumerate(test_data):     
         X, Y = features.to(device), labels.to(device)
         X = X.unsqueeze(0)
         X = X.transpose(0, 1)
         y_hat = net(X)
         Y = Y.squeeze(dim=1)
-        result = torch.eq(y_hat.max(1, keepdim=True)[1], Y.max(1, keepdim=True)[1])
+        y_hat = y_hat.max(1, keepdim=True)[1]
+        Y = Y.max(1, keepdim=True)[1]
+        result = torch.eq(y_hat, Y)
         accNum = accNum + result.sum().item()
+        result = result.numpy()
+        Y = Y.numpy()
+        for i, r in enumerate(result):
+            y = str(Y[i][0])
+            verify_result[y]["total"] = verify_result[y]["total"] + 1
+            if not r[0]:
+                verify_result[y]["error"] = verify_result[y]["error"] + 1
+
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
     log_str = "train acc: %.4f, use time:%.2fs" % (acc, use_time)
+    for cls in verify_result:
+        print("cls {0:s} acc is {1:1.3f}, total: {2:d}, error: {3:d}".format(cls, 
+                verify_result[cls]["error"]/verify_result[cls]["total"], 
+                verify_result[cls]["error"], verify_result[cls]["total"]))
     print(log_str)
     log_file.write(log_str)
     return acc
 
 def test(net):
     ''' 测试 '''
-    test_video_feature_dataset = VideoFeatureDataset(verify_data_file, mode="test")
+    test_video_feature_dataset = VideoFeatureDataset(test_data_file, mode="test")
     test_data = DataLoader(test_video_feature_dataset, batch_size=1, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
     net.eval()
-    result = ""
-    for i, (features, image_path) in enumerate(test_data):     
-        X = features.to(device)
-        X = X.unsqueeze(0)
-        X = X.transpose(0, 1)
-        y_hat = net(X)
-        result_cls = y_hat.max(1, keepdim=True)[1]      
-        result = result + "{},{}\r\n".format(image_path, result_cls)
-    print(result)
+    result = {}
+    with tqdm(total=len(test_data.dataset), desc="test", unit='img') as pbar:
+        for i, (features, image_path) in enumerate(test_data):     
+            X = features.to(device)
+            X = X.unsqueeze(0)
+            X = X.transpose(0, 1)
+            y_hat = net(X)
+            result_cls = y_hat.max(1, keepdim=True)[1]      
+            image_name = Path(image_path[0]).name
+            result[image_name] = str(result_cls.item())
+            pbar.update(features.shape[0])   
+        print(result)
+        with open(os.path.join(workspace_root, "result.txt"), "w+") as result_f:
+            result_f.write(json.dumps(result))
 
 
 if __name__ == '__main__':
@@ -131,12 +164,14 @@ if __name__ == '__main__':
     parse.description = "设置训练还是推理"
     parse.add_argument("--action", type=str, default="train", help="train or test, default train")
     parse.add_argument("--batch_size", type=int, default=2, help="batch_size, default 2")
-    parse.add_argument("--ckpt", type=str,
-                       help="the path of model weight file")
+    parse.add_argument("--resume", type=str,
+                       help="resume")
     args = parse.parse_args()
     print(args.action) 
     if args.action == "train":
         train(args)
     elif args.action == "test":
         # python main.py test --ckpt weight_19.pth#
-        test(args)
+        model = LeNet(1, 5).to(device)
+        model.load_state_dict(torch.load(os.path.join(workspace_root, 'best_model.pth')))        # 加载训练数据权重
+        test(model)
