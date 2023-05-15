@@ -52,7 +52,7 @@ def train(args):
 
     criterion = nn.CrossEntropyLoss()              # 损失函数
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)      # 优化函数
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.9)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.9)
 
     best_acc = 0
     for epoch in range(num_epochs):           
