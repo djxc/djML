@@ -23,7 +23,7 @@ lr = 0.001
 class_num = 5
 num_epochs = 200
 num_workers = 8
-model_name = "resNet18_pre"
+model_name = "resNet50_pre"
 
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -60,7 +60,6 @@ def train(args):
     best_acc = 0
     for epoch in range(num_epochs):           
         epoch_loss = 0
-        model.train()
         startTime = time.time()
         current_lr = optimizer.state_dict()['param_groups'][0]['lr']
         pbar_desc = 'Epoch {0:d}/{1:d}|lr:{2:1.5f}'.format(epoch + 1, num_epochs, current_lr)
@@ -88,6 +87,7 @@ def train(args):
                 best_acc = acc
                 print("save best model, epoch:{}".format(epoch + 1))
                 torch.save(model.state_dict(), os.path.join(workspace_root, 'best_model.pth'))        # 保存模型参数，使用时直接加载保存的path文件
+            model.train()            
         # 每10轮保存一次结果
         if epoch > 0 and (epoch + 1) % 10 == 0:
             torch.save(model.state_dict(), os.path.join(workspace_root, 'wight_{}.pth'.format(epoch + 1)))        # 保存模型参数，使用时直接加载保存的path文件
