@@ -1,7 +1,11 @@
 
+import os 
 import torch
 from torch import nn
 from torch.nn import functional as F
+import torchvision
+
+from config import workspace_root
 
 ## 使用多层感知机，数据量太大不能全部放入内存 #
 class MLPModel(nn.Module):
@@ -77,15 +81,68 @@ class LeNet(nn.Module):
         output = self.fc(feature)
         return output
     
-if __name__ == "__main__":
-    net = LeNet(1, 5)
-    print(net.conv)
-    X = torch.rand(size=(1, 1, 250, 2408), dtype=torch.float32)
 
-    for layer in net.conv:
-        X = layer(X)
-        print(layer.__class__.__name__,'output shape: \t',X.shape)
-    print(X.shape)
-    for layer in net.fc:
-        X = layer(X)
-        print(layer.__class__.__name__,'output shape: \t',X.shape)
+def create_net(net_name: str, class_num: int, resume=""):
+    """根据模型名称创建模型
+    """
+    print("create {} net ....".format(net_name))
+    if net_name == "efficientNet":
+        pass
+        # net = EfficientNet.from_pretrained('efficientnet-b4',  num_classes=class_num)
+        # net = EfficientNet.from_name('efficientnet-b4',  num_classes=176)
+    # elif net_name == "resNet":
+    #     net = createResNet()
+    elif net_name == "resNet50_pre":
+        net = torchvision.models.resnet50(pretrained=True)
+        net.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # set_parameter_requires_grad(model_ft, False)  # 固定住前面的网络层
+        num_ftrs = net.fc.in_features
+        # 修改最后的全连接层
+        net.fc = nn.Sequential(
+            nn.Linear(num_ftrs, 512),
+            nn.ReLU(),
+            nn.Linear(512, class_num)
+        )
+    elif net_name == "resNet18_pre":
+        net = torchvision.models.resnet18(pretrained=True)
+        net.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # set_parameter_requires_grad(model_ft, False)  # 固定住前面的网络层
+        for i, param in enumerate(net.parameters()): 
+            if i == 0:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+        num_ftrs = net.fc.in_features
+        # 修改最后的全连接层
+        net.fc = nn.Sequential(
+            nn.Linear(num_ftrs, 512),
+            nn.ReLU(),
+            nn.Linear(512, class_num)
+        )
+    elif net_name == "resnext":
+        net = torchvision.models.resnext50_32x4d(pretrained=True)
+        # set_parameter_requires_grad(model_ft, feature_extract)
+        num_ftrs = net.fc.in_features
+        net.fc = nn.Sequential(nn.Linear(num_ftrs, class_num))
+    else:
+        net = LeNet(1, class_num)
+
+    if resume and len(resume) > 0:
+        net.load_state_dict(torch.load(os.path.join(workspace_root, resume)))        # 加载训练数据权重
+        print("load model {}".format(resume))
+    return net
+
+if __name__ == "__main__":
+    # net = LeNet(1, 5)
+    # print(net.conv)
+    # X = torch.rand(size=(1, 1, 250, 2408), dtype=torch.float32)
+
+    # for layer in net.conv:
+    #     X = layer(X)
+    #     print(layer.__class__.__name__,'output shape: \t',X.shape)
+    # print(X.shape)
+    # for layer in net.fc:
+    #     X = layer(X)
+    #     print(layer.__class__.__name__,'output shape: \t',X.shape)
+    net = create_net("resNet18_pre", 5, None)
+    print(net)
