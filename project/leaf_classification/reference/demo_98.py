@@ -226,9 +226,9 @@ def valid_model1():
                 preds.append(dict(image=name, labels=lbs))
     df_preds = pd.DataFrame(preds)
     sub_df['label'] = df_preds['labels']
-    sub_df.to_csv('submission.csv', index=False)
+    sub_df.to_csv( params["root_path"] + 'submission.csv', index=False)
     sub_df.head()
 
 if __name__ == "__main__":
-    # train_model()
-    valid_model1()
+    train_model()
+    # valid_model1()

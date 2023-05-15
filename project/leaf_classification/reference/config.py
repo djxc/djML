@@ -39,11 +39,11 @@ label_inv_map = {v: k for k, v in label_map.items()}
 
 
 params = {
-    'model': 'seresnext50_32x4d',
-    # 'model': 'resnet50d',
+    # 'model': 'seresnext50_32x4d',
+    'model': 'resnet50d',
     'device': device,
     'lr': 1e-3,
-    'batch_size': 16, # 64
+    'batch_size': 20, # 64
     'num_workers': 0,
     'epochs': 50,
     'out_features': df['label'].nunique(),

@@ -103,7 +103,7 @@ if __name__ == '__main__':
     parse = argparse.ArgumentParser()
     parse.description = "设置训练还是推理"
     parse.add_argument("action", type=str, help="train or test")
-    parse.add_argument("--batch_size", type=int, default=2)
+    parse.add_argument("--batch_size", type=int, default=10)
     parse.add_argument("--ckpt", type=str,
                        help="the path of model weight file")
     args = parse.parse_args()

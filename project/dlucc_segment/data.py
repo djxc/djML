@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-rootPath = r"E:\Data\MLData\segment\LUCC"
+rootPath = r"D:\Data\MLData\segment\LUCC"
 
 class LUCCDataset(torch.utils.data.Dataset):
     """一个用于加载香蕉检测数据集的自定义数据集。"""
