@@ -10,23 +10,29 @@ import time
 import json
 from pathlib import Path
 from model import MLPModel, LeNet, AlexNet
+from torch.utils.data import DataLoader
 from torch import nn, optim
 from tqdm import tqdm
 
+from config import workspace_root
 from data import VideoFeatureDataset
-from torch.utils.data import DataLoader
+from model import MLPModel, LeNet, create_net
+
+
+lr = 0.001
+class_num = 5
+num_epochs = 200
+num_workers = 8
+model_name = "resNet18_pre"
+
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-num_workers = 8
-num_epochs = 200
-lr = 0.1
 
 workspace_root = r"D:\Data\MLData\videoFeature"
 train_data_file = os.path.join(workspace_root, "train\\train.csv")
 verify_data_file = os.path.join(workspace_root, "train\\verify.csv")
 test_data_file = os.path.join(workspace_root, "test_A\\test.csv")
-model_name = "LeNet"
 
 def train(args):
     """训练模型  
@@ -45,13 +51,12 @@ def train(args):
     verify_video_feature_dataset = VideoFeatureDataset(verify_data_file, mode="verify")
     verify_data = DataLoader(verify_video_feature_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)  # 使用pytorch的数据加载函数加载数据
 
-    model = AlexNet(1, 5).to(device)
-    if args.resume:
-        model.load_state_dict(torch.load(os.path.join(workspace_root, args.resume)))        # 加载训练数据权重
-        print("load model {}".format(args.resume))
+    model = create_net(model_name, class_num, args.resume).to(device)
+
     criterion = nn.CrossEntropyLoss()              # 损失函数
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.9)
+
     best_acc = 0
     for epoch in range(num_epochs):           
         epoch_loss = 0
