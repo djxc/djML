@@ -18,7 +18,7 @@ from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
 
 
-lr = 0.01
+lr = 0.001
 class_num = 5
 num_epochs = 100
 num_workers = 8

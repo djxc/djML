@@ -469,3 +469,5 @@ def bilinear_kernel(in_channels, out_channels, kernel_size):
         (in_channels, out_channels, kernel_size, kernel_size))
     weight[range(in_channels), range(out_channels), :, :] = filt
     return weight
+
+
