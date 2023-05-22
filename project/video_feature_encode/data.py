@@ -1,6 +1,7 @@
 import os
 import torch
 import numpy as np
+from torchvision import transforms
 
 
 class VideoFeatureDataset(torch.utils.data.Dataset):
@@ -11,6 +12,10 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         with open(file_path, encoding="utf-8") as image_file:
             self.imageDatas = image_file.readlines()
        
+        self.transform_norm = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5])
+        ])
         self.label_info = ["0", "1", "2", "3", "4"]
         print("read {} {} examples".format(len(self.imageDatas), mode))        
 
@@ -31,7 +36,7 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         depthmap = np.load(npy_path)    #使用numpy载入npy文件
         depthmap = np.squeeze(depthmap, -1)
         depthmap = np.squeeze(depthmap, -1)
-        depthmap = torch.from_numpy(depthmap)
+        depthmap = self.transform_norm(depthmap)
         return depthmap
 
     def __len__(self):

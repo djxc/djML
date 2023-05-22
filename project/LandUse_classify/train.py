@@ -12,7 +12,7 @@ from model import LandUseNet
 
 
 
-log_header = "{} batchSize: {}\n".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), batchSize)
+log_header = "---------------------------------\n{} batchSize: {}\n".format(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), batchSize)
 
 def train():
     '''训练
@@ -51,7 +51,7 @@ def train():
                 scheduler.step()
                 loss_total = loss_total + l
             endTime = time.time()
-            if epoch > 0 and epoch % 1 == 0:
+            if epoch > 0 and epoch % 5 == 0:
                 acc = predictNet(net, test_data, log_file)
                 if acc > best_acc:
                     best_acc = acc

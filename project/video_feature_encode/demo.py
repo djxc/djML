@@ -4,6 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import json
 from PIL import Image
+workspace_root = r"D:\Data\MLData\videoFeature"
 
 def load_npy():
     """用numpy读取文件，每个文件为250*2408*1*1矩阵"""
@@ -91,7 +92,7 @@ def split_train_verfy(label_path, radio=0.3):
         verify_file.write(verify_list)
 
 def create_test_data_files():
-    test_root = r"E:\Data\MLData\视觉特征编码\test_A"
+    test_root = os.path.join(workspace_root, "test_A")
     feature_root = os.path.join(test_root, "test_A_feature")
     test_files = os.listdir(feature_root)
     test_file_list = ""
@@ -105,7 +106,7 @@ if __name__ == "__main__":
     # load_npy()
     # statistic_label(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
     # save_npy_as_image(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
-    # split_train_verfy(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
+    split_train_verfy(os.path.join(workspace_root, "train", "train_list.txt"))
     create_test_data_files()
 
 

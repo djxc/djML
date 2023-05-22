@@ -1,4 +1,5 @@
 
+import os
 import torch
 
 resume = True
@@ -11,7 +12,9 @@ model_name = "resNet50_pre"
 best_model_name = "best_model.pth"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model_root = r"E:\Data\MLData\classify\UCMerced_LandUse\model"
-
-train_dataset_file = r"E:\Data\MLData\classify\UCMerced_LandUse\train.txt"
-verify_dataset_file = r"E:\Data\MLData\classify\UCMerced_LandUse\verify.txt"
+base_root = r"D:\Data\MLData\classify\UCMerced_LandUse"
+model_root = r"{}\model".format(base_root)
+if not os.path.exists(model_root):
+    os.mkdir(model_root)
+train_dataset_file = r"{}\train.txt".format(base_root)
+verify_dataset_file = r"{}\verify.txt".format(base_root)

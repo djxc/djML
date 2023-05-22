@@ -6,7 +6,7 @@ from typing import List
 import torch, torchvision
 from dataclasses import dataclass
 
-from config import train_dataset_file, verify_dataset_file
+from config import train_dataset_file, verify_dataset_file, base_root
 
 LANDUSE_LABELS = ['agricultural', 'airplane', 'baseballdiamond', 'beach', 'buildings', 'chaparral', 'denseresidential', 
     'forest', 'freeway', 'golfcourse', 'harbor', 'intersection', 'mediumresidential', 'mobilehomepark', 'overpass', 'parkinglot', 
@@ -100,12 +100,12 @@ def split_train_verify(data_dir, ratio = 0.7) -> MLDataSet:
     
     
 def save_train_verify_info():
-    ml_dataset = split_train_verify_list(r"E:\Data\MLData\classify\UCMerced_LandUse\Images")
-    with open(r"E:\Data\MLData\classify\UCMerced_LandUse\train.txt", "w") as train_file:
+    ml_dataset = split_train_verify_list(r"{}\Images".format(base_root))
+    with open(train_dataset_file, "w") as train_file:
         np.random.shuffle(ml_dataset.train_list)
         for file in ml_dataset.train_list:
             train_file.write(file + "\n")
-    with open(r"E:\Data\MLData\classify\UCMerced_LandUse\verify.txt", "w") as verify_file:
+    with open(verify_dataset_file, "w") as verify_file:
         np.random.shuffle(ml_dataset.verify_list)
         for file in ml_dataset.verify_list:
             verify_file.write(file + "\n")
@@ -119,11 +119,12 @@ def load_land_use_dataset(batch_size, num_workers = 4):
     return train_iter, verify_iter
 
 if __name__ == "__main__":
-    # save_train_verify_info()
-    batch_size = 4
-    num_workers = 4
-    landUse_dataset = LandUseClassifyDataset(r"E:\Data\MLData\classify\UCMerced_LandUse\train.txt")
+    save_train_verify_info()
 
-    train_iter = torch.utils.data.DataLoader(landUse_dataset, batch_size, shuffle=True, drop_last=True, num_workers=num_workers)
-    for i, (features, labels) in enumerate(train_iter):
-        print(len(features), labels)    
+    # batch_size = 4
+    # num_workers = 4
+    # landUse_dataset = LandUseClassifyDataset(train_dataset_file)
+
+    # train_iter = torch.utils.data.DataLoader(landUse_dataset, batch_size, shuffle=True, drop_last=True, num_workers=num_workers)
+    # for i, (features, labels) in enumerate(train_iter):
+    #     print(len(features), labels)    

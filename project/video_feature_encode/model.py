@@ -37,7 +37,7 @@ class MLPModel(nn.Module):
 
     def forward(self, X):
         return self.out(F.relu(self.hidden(X)))
-    
+
 # lenet网络
 class LeNet(nn.Module):
     '''LeNet主要分为两部分
@@ -63,21 +63,76 @@ class LeNet(nn.Module):
 
             nn.Conv2d(32, 64, self.conv2d_ksize),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),
+            nn.MaxPool2d(2, 2),           
         )
         self.fc = nn.Sequential(
-            nn.Linear(1364 * 64, 512 * 8),
+            nn.Linear(10912 * 8, 512 * 8),
             nn.ReLU(),
+            nn.Dropout(),
             nn.Linear(512 * 8, 512),
             nn.ReLU(),
+            nn.Dropout(),
             nn.Linear(512, 128),
             nn.ReLU(),
+            nn.Dropout(),
             nn.Linear(128, out_channel)
         )
     def forward(self, img):
         feature = self.conv(img)
         feature = feature.view(img.shape[0], -1)
+        output = self.fc(feature)
+        return output
 
+# alexnet网络
+class AlexNet(nn.Module):
+    '''LeNet主要分为两部分
+        1、卷积加池化，卷积层减小了尺寸增加了通道数，获取空间特征
+        2、全连接层，将每个数据输出为一维数据，并逐渐减小个数
+        3、LeNet未使用丢弃法
+    '''
+    def __init__(self, in_channel, out_channel):
+        super(AlexNet, self).__init__()
+        self.conv2d_ksize = 3   
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channel, 6, self.conv2d_ksize), # in_channels, out_channels, kernel_size
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # kernel_size, stride
+
+            nn.Conv2d(6, 16, self.conv2d_ksize),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(16, 32, self.conv2d_ksize),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(32, 64, self.conv2d_ksize),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(64, 128, self.conv2d_ksize),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(128, 256, self.conv2d_ksize),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(960 * 8, 512 * 8),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(512 * 8, 512),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(512, 128),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(128, out_channel)
+        )
+    def forward(self, img):
+        feature = self.conv(img)
+        feature = feature.view(img.shape[0], -1)
         output = self.fc(feature)
         return output
     
@@ -96,7 +151,7 @@ class Inception(nn.Module):
         # 线路4，3x3最大汇聚层后接1x1卷积层
         self.p4_1 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
         self.p4_2 = nn.Conv2d(in_channels, c4, kernel_size=1)
-
+  
     def forward(self, x):
         p1 = F.relu(self.p1_1(x))
         p2 = F.relu(self.p2_2(F.relu(self.p2_1(x))))
