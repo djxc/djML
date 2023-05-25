@@ -1,14 +1,18 @@
 
 import math
 import numpy as np
+from numpy import ndarray
 import sympy as sym
 from matplotlib import pyplot as plt
+from scipy.interpolate import CubicSpline
+import numpy.polynomial.polynomial as poly
+from scipy.interpolate import lagrange
 
 
 def create_data():
     """生成样本数据"""
-    x = [0, 2, 4, 6, 8, 10]
-    y = [math.sin(i) for i in x]
+    x = [i for i in range(0, 30, 2)]
+    y = [math.sin(i * 0.5) for i in x]
     return np.array(x), np.array(y)
 
 def show_point_data(x, y):
@@ -37,112 +41,140 @@ def show_line_data(x, y, x_inter, y_inter, title='interpolation'):
     plt.show()#显示图像
 
 
-def line_interpolation(x, y, inter_num=1):
-    """线性插值
-        1、首先求出x的范围
-        2、遍历x范围，默认间隔为1
-    """
-    x_inter = []
-    y_inter = []
+class DInterpolation:
+    def __init__(self, x: ndarray, f: ndarray, inter_num=1) -> None:
+        self.x = x
+        self.f = f
+        self.inter_num = inter_num
+        self.x_new = np.arange(self.x[0], self.x[-1] + self.inter_num, self.inter_num)
 
-    x_min = x[0]
-    x_max = x[-1]
-    x_p = 0
-    for x1 in range(x_min, x_max - 1, inter_num):
-        x_inter.append(x1)
-        if x1 not in x:
-            print(x_p, y[x_p], y[x_p + 1])
-            y1 = (y[x_p] + y[x_p + 1]) / 2
-        else:
-            x_p = x.index(x1)
-            y1 = y[x_p]
-        print(x1, y1)
-        y_inter.append(y1)    
-    show_line_data(x, y, x_inter, y_inter)
+        self.xf_map = self.__create_xf_map()
 
+    def __create_xf_map(self):
+        """"""
+        x_y_map = {}
+        for i, xi in enumerate(self.x):
+            x_y_map[xi] = self.f[i]
+        return x_y_map
 
-
-def fill_table(points_x, points_y):
-    n = len(points_x)  # 要插值的点数
-
-    # 定义表格
-    ki = np.arange(0, n, 1) # 0-n 取值，间隔为1，ki为【0,1，。。。，n-1】，应该是作为编号了
-    # print("ki",ki)
-    table = np.concatenate(([ki], [points_x], [points_y]), axis=0)
-    # [[0.   1.   2.   3.  ]
-    #  [2.2  5.8  4.2  4.5 ]
-    #  [4.12 8.42 7.25 7.85]]   把ki，x，y上的数据合并，按照行，第一行是ki，第二行是x，第三行是y
-
-    table = np.transpose(table) # 对数据进行转置，第一行变为第一列，第二行变为第二列，类推
-    # [[0.   2.2  4.12]
-    #  [1.   5.8  8.42]
-    #  [2.   4.2  7.25]
-    #  [3.   4.5  7.85]]
-
-    dfinite = np.zeros(shape=(n, n), dtype=float)   # n行n列的0
-
-    table = np.concatenate((table, dfinite), axis=1)    # table, dfinite按照列合并
-    # [[0.   2.2  4.12 0.   0.   0.   0.  ]
-    #  [1.   5.8  8.42 0.   0.   0.   0.  ]
-    #  [2.   4.2  7.25 0.   0.   0.   0.  ]
-    #  [3.   4.5  7.85 0.   0.   0.   0.  ]]
-
-    # Calcul la tabla
-    [n, m] = np.shape(table)    # 获取table的形状 4 行7列
-    diagonal = n - 1    # 对角中值的数
-    for j in range(3, m): # 因为从标号为3的列才需要把计算的值插进去
-        step = j - 2    # 区之间隔，为了找到x的值
-        for i in range(diagonal):
-            denominator = (points_x[i + step] - points_x[i])    # 分母
-            numerator = table[i + 1, j - 1] - table[i, j - 1]   # 分子计算
-            table[i, j] = numerator / denominator   # 获得查分值，保存
-        diagonal = diagonal - 1
-    # print(table)
-    # (8.42-4.12)/(5.8-2.2) = 1.1944444444444444,剩下的这个表格也就能看懂了
-    # [[ 0.          2.2         4.12        1.19444444 -0.23159722 -0.32363666 0.        ]
-    #  [ 1.          5.8         8.42        0.73125    -0.97596154  0.         0.        ]
-    #  [ 2.          4.2         7.25        2.          0.          0.         0.        ]
-    #  [ 3.          4.5         7.85        0.          0.          0.         0.        ]]
-    return table
+    
+    def __find_next_key_value(self, key):
+        """在map中查找最小的大于该key的key以及value"""
+        for keyi in self.xf_map:
+            if keyi > key:
+                return keyi
+    
+    def __find_last_key_value(self, key):
+        """在map中查找最小的大于该key的key以及value"""
+        last_key = 0
+        for keyi in self.xf_map:
+            if keyi > key:
+                return last_key
+            last_key = keyi
 
 
-def create_polinomio(tabla, n, points_y, points_x):
-    diference_divid = tabla[0, 3:]  # [ 1.19444444 -0.23159722 -0.32363666  0.        ] 获取第一行有用的查分信息
-    # print(diference_divid)
+    def line_interpolation(self):
+        """线性插值
+            1、建立x与y的对应关系
+            2、首先求出x的范围
+            3、遍历x范围，默认间隔为1
+        """
 
-    x = sym.Symbol('x')
-    polynomial = points_y[0]    # 开始构建多项式，第一项就是f（x0）
-    for j in range(1, n, 1):
-        factor = diference_divid[j - 1] # 分别获取差分中的元素
-        term = 1
-        for k in range(0, j):
-            term = term * (x - points_x[k]) # 构建x
-        polynomial = polynomial + term * factor # 把这一项加入到多项式中
+        x_inter = []
+        y_inter = []
+        last_y1 = self.f[0]
+        next_y1 = None
+        for x1 in self.x_new:
+            x_inter.append(x1)
+            if x1 not in self.xf_map:    
+                if next_y1 is None:           
+                    next_x1 = self.__find_next_key_value(x1)
+                    next_y1 = self.xf_map[next_x1]
+                y1 = last_y1 + (next_y1 - last_y1) / ((next_x1 - x1) / self.inter_num)
+                last_y1 = y1
+            else:
+                y1 = self.xf_map[x1]
+                last_y1 = y1
+                next_y1 = None
+            y_inter.append(y1)    
+        return x_inter, y_inter
+    
+    def cubic_interpolation(self):
+        """三次样条插值"""
+        # use bc_type = 'natural' adds the constraints as we described above
+        f = CubicSpline(self.x, self.f, bc_type='natural')
 
-    simple_polynomial = polynomial.expand()
-    # 把多项式展开-0.323636659234485*x**3 + 3.7167700204385*x**2 - 11.9565732998885*x + 15.8813775083612
+        y_new = f(self.x_new)
+        return self.x_new, y_new
+    
+    def lagrange_interpolation(self):
+        """拉格朗日插值"""
+        f = lagrange(self.x, self.f)
+        y_new = f(self.x_new)
+        return self.x_new, y_new
+    
+    def polynomial_interpolation(self, power_num=2):
+        """多项式插值
+            1、根据给出的点构造多项式，多项式的次数需要小于样本点
+        """        
+        simple_num = self.f.shape[0]
+        assert power_num <= simple_num, "多项式次数需要小于等于样本数"
+        p = np.poly1d(np.polyfit(self.x, self.f, power_num))       # 多项式拟合
+        print(p) 
+        x_inter = []
+        y_inter = []       
 
-    numerical_polynomial = sym.lambdify(x, simple_polynomial)
-    return numerical_polynomial
+        for x1 in self.x_new:
+            x_inter.append(x1) 
+            y_inter.append(p(x1))     
+        return x_inter, y_inter
+    
+    def nowton_interpolation(self):
+        '''
+        evaluate the newton polynomial 
+        at x
+        '''
+        a_s = self.__divided_diff(self.x, self.f)[0, :]
+        x_min = self.x[0]
+        x_max = self.x[-1]
+        n = len(self.x) - 1 
+        p = a_s[n]
+        x = np.arange(x_min, x_max + 1, self.inter_num)
+        for k in range(1,n+1):
+            p = a_s[n-k] + (x - self.x[n-k])*p
+        return x, p
 
+   
 
-def newton_method(points_x, points_y):
-    table = fill_table(points_x, points_y)  # 创建表格
-    polynomial = create_polinomio(table, len(points_x), points_y, points_x)  # 创建插值多项式
+    def __divided_diff(self, x, y):
+        '''
+        function to calculate the divided
+        differences table
+        '''
+        n = len(y)
+        coef = np.zeros([n, n])
+        # the first column is y
+        coef[:,0] = y
+        
+        for j in range(1,n):
+            for i in range(n-j):
+                coef[i][j] = (coef[i+1][j-1] - coef[i][j-1]) / (x[i+j]-x[i])
+        return coef
 
-    # 图形点
-    muestras = 101
-    min_interval = np.min(points_x)
-    max_interval = np.max(points_x)
-    points_interval = np.linspace(min_interval, max_interval, muestras)  # x的插值点
-    evaluate_points = polynomial(points_interval)  # 根据x算出y
-    show_line_data(points_x, points_y, points_interval, evaluate_points)
 
 
 if __name__ == "__main__":
+    # xi = np.arange(0, 8)
+    # fi = np.array([4350755.6, 4349116, 4347471, 4345821, 4344167, 4342507, 4340842, 4339171])
+    # yi = np.array([3302338, 3308915, 3315488, 3322056, 3328622, 3335182, 3341740.0, 3348293.8])
+    # zi = np.array([4358314, 4354978, 4351637, 4348292, 4344941, 4341584, 4338224, 4334858])
     xi, fi = create_data()
-    # print(x, y)
-    # # show_data(x, y)
-    # line_interpolation(x, y)
+    # show_point_data(xi, zi)
+    interpolation = DInterpolation(xi, fi, 0.1)
+    x_inter, y_inter = interpolation.line_interpolation()
+    # # x_inter, y_inter = interpolation.cubic_interpolation()
+    # x_inter, y_inter = interpolation.lagrange_interpolation()
+    # # # x_inter, y_inter = interpolation.polynomial_interpolation(power_num=10)
+    # # # x_inter, y_inter = interpolation.nowton_interpolation()
 
-    newton_method(xi, fi) 
+    show_line_data(xi, fi, x_inter, y_inter)
