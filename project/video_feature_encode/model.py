@@ -222,6 +222,15 @@ def create_net(net_name: str, class_num: int, resume=""):
         net.fc = nn.Sequential(
             nn.Linear(num_ftrs, class_num)
         )
+    elif net_name == "resNet101_pre":
+        net = torchvision.models.resnet101(pretrained=True)
+        net.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # set_parameter_requires_grad(model_ft, False)  # 固定住前面的网络层
+        num_ftrs = net.fc.in_features
+        # 修改最后的全连接层
+        net.fc = nn.Sequential(
+            nn.Linear(num_ftrs, class_num)
+        )
     elif net_name == "resNet18_pre":
         net = torchvision.models.resnet18(pretrained=True)
         net.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)

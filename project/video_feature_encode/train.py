@@ -19,11 +19,11 @@ from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
 
 
-lr = 0.001
+lr = 0.0001
 class_num = 5
-num_epochs = 200
+num_epochs = 500
 num_workers = 8
-model_name = "resNet50_pre"
+model_name = "resNet101_pre"
 
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

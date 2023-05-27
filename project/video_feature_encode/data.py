@@ -14,7 +14,8 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
        
         self.transform_norm = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5])
+            transforms.Normalize(mean=[0.5], std=[0.5]),
+            transforms.RandomHorizontalFlip(),
         ])
         self.label_info = ["0", "1", "2", "3", "4"]
         print("read {} {} examples".format(len(self.imageDatas), mode))        
