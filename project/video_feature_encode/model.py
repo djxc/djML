@@ -4,6 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 import torchvision
+import timm
 
 from config import workspace_root
 
@@ -231,6 +232,16 @@ def create_net(net_name: str, class_num: int, resume=""):
         net.fc = nn.Sequential(
             nn.Linear(num_ftrs, class_num)
         )
+    elif net_name == "resnet50_pre_timm":
+        net = timm.create_model("resnet50d", pretrained=True)
+        net.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # for i, param in enumerate(net.parameters()): 
+        #     param.requires_grad = False
+        #     if i == 160:
+        #         param.requires_grad = True
+        n_features = net.fc.in_features
+        net.fc = nn.Linear(n_features, class_num)
+        # net.fc.requires_grad_ = True
     elif net_name == "resNet18_pre":
         net = torchvision.models.resnet18(pretrained=True)
         net.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -273,5 +284,5 @@ if __name__ == "__main__":
     # for layer in net.fc:
     #     X = layer(X)
     #     print(layer.__class__.__name__,'output shape: \t',X.shape)
-    net = create_net("resNet18_pre", 5, None)
+    net = create_net("resnet50_pre_timm", 5, None)
     print(net)

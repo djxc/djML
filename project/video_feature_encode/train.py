@@ -13,17 +13,19 @@ from model import MLPModel, LeNet, AlexNet
 from torch.utils.data import DataLoader
 from torch import nn, optim
 from tqdm import tqdm
+import numpy as np
+import random
 
 from config import workspace_root
 from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
 
 
-lr = 0.0001
+lr = 0.00001
 class_num = 5
 num_epochs = 500
-num_workers = 8
-model_name = "resNet101_pre"
+num_workers = 1
+model_name = "resnet50_pre_timm"
 
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,7 +55,8 @@ def train(args):
 
     model = create_net(model_name, class_num, args.resume).to(device)
 
-    criterion = nn.CrossEntropyLoss()              # 损失函数
+
+
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.9)
 
@@ -68,13 +71,32 @@ def train(args):
                 # 将输入的要素用gpu计算
                 inputs = x.to(device)
                 labels = y.to(device)
+                augmentation = False
+                if random.random() > 0.7:
+                    augmentation = True
                 # zero the parameter gradients
                 optimizer.zero_grad()
-                # inputs = inputs.unsqueeze(0)
-                # inputs = inputs.transpose(0, 1)
+                # 定义两类损失函数
+                if augmentation:
+                    criterion = mixup_criterion
+                    inputs, labels, y_b, lam = data_augmentation(inputs, labels)
+                else:
+                    criterion = nn.CrossEntropyLoss()  
+
+
                 # 前向传播
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)   # 损失函数
+                # outputs = model(inputs)
+                # loss = criterion(outputs, labels)   # 损失函数
+
+                outputs = model(inputs)            
+                # labels = labels.squeeze(dim=1)
+                
+                if augmentation:
+                    # y_b = y_b.squeeze(dim=1)
+                    loss = criterion(outputs, labels, y_b, lam)
+                else:
+                    loss = criterion(outputs, labels)
+
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
                 epoch_loss += loss.item()
@@ -86,17 +108,46 @@ def train(args):
             if acc > best_acc:
                 best_acc = acc
                 print("save best model, epoch:{}".format(epoch + 1))
-                torch.save(model.state_dict(), os.path.join(workspace_root, 'best_model.pth'))        # 保存模型参数，使用时直接加载保存的path文件
+                torch.save(model.state_dict(), os.path.join(workspace_root, 'best{}_model.pth'.format(model_name)))        # 保存模型参数，使用时直接加载保存的path文件
             model.train()            
         # 每10轮保存一次结果
         if epoch > 0 and (epoch + 1) % 10 == 0:
-            torch.save(model.state_dict(), os.path.join(workspace_root, 'wight_{}.pth'.format(epoch + 1)))        # 保存模型参数，使用时直接加载保存的path文件
+            torch.save(model.state_dict(), os.path.join(workspace_root, 'wight_{}_{}.pth'.format(model_name, epoch + 1)))        # 保存模型参数，使用时直接加载保存的path文件
         endTime = time.time()
         log_info = 'epoch %d, loss %.4f, lr %.6f, use time:%.2fs\n' % (epoch + 1, epoch_loss/step, current_lr, endTime - startTime)
         log_file.write(log_info) 
         log_file.flush()
         scheduler.step()
 
+def mixup_criterion(pred, y_a, y_b, lam):
+    """损失函数"""
+    c = nn.CrossEntropyLoss()    
+    return lam * c(pred, y_a) + (1 - lam) * c(pred, y_b)
+
+def data_augmentation(X, Y):
+    # 数据增强       
+    # X, Y, y_b, lam = cutmix_data(X, Y, use_cuda=use_cuda)
+    X, Y, y_b, lam = mixup_data(X, Y)
+    X, Y, y_b = map(torch.autograd.Variable, (X, Y, y_b))
+    return X, Y, y_b, lam
+    
+# 图像增强
+def mixup_data(x, y, alpha=1.0, use_cuda=True):
+    """ Mixup 数据增强 -> 随机叠加两张图像 """
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)  # β分布
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size)
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    
+    return mixed_x, y_a, y_b, lam   
 
 
 def predictNet(net, test_data, log_file, batchSize):
@@ -135,9 +186,11 @@ def predictNet(net, test_data, log_file, batchSize):
     for cls in verify_result:
         total_num = verify_result[cls]["total"]
         true_num = total_num - verify_result[cls]["error"]
-        print("cls {0:s} acc is {1:1.3f}, total: {2:d}, error: {3:d}".format(cls, 
+        class_result = "cls {0:s} acc is {1:1.3f}, total: {2:d}, error: {3:d}".format(cls, 
                 true_num/total_num, 
-                total_num, verify_result[cls]["error"]))
+                total_num, verify_result[cls]["error"])
+        log_file.write(class_result)
+        print(class_result)        
     print(log_str)
     log_file.write(log_str)
     return acc
@@ -171,7 +224,7 @@ if __name__ == '__main__':
     parse = argparse.ArgumentParser()
     parse.description = "设置训练还是推理"
     parse.add_argument("--action", type=str, default="train", help="train or test, default train")
-    parse.add_argument("--batch_size", type=int, default=2, help="batch_size, default 8")
+    parse.add_argument("--batch_size", type=int, default=2, help="batch_size, default 2")
     parse.add_argument("--resume", type=str,
                        help="resume")
     args = parse.parse_args()
@@ -180,6 +233,6 @@ if __name__ == '__main__':
         train(args)
     elif args.action == "test":
         # python main.py test --ckpt weight_19.pth#
-        model = LeNet(1, 5).to(device)
-        model.load_state_dict(torch.load(os.path.join(workspace_root, 'best_model_70.pth')))        # 加载训练数据权重
+        model = create_net(model_name, class_num, args.resume).to(device)
+        model.load_state_dict(torch.load(os.path.join(workspace_root, 'wight_resnet101.pth')))        # 加载训练数据权重
         test(model)
