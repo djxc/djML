@@ -181,19 +181,27 @@ def rnn(inputs, state, params):
         outputs.append(Y)
     return torch.cat(outputs, dim=0), (H,)
 
+#@save
+def preprocess_nmt(text):
+    """预处理“英语－法语”数据集"""
+    def no_space(char, prev_char):
+        return char in set(',.!?') and prev_char != ' '
 
-class RNNModelScratch: #@save
-    """从零开始实现的循环神经网络模型"""
-    def __init__(self, vocab_size, num_hiddens, device,
-                 get_params, init_state, forward_fn):
-        self.vocab_size, self.num_hiddens = vocab_size, num_hiddens
-        self.params = get_params(vocab_size, num_hiddens, device)
-        self.init_state, self.forward_fn = init_state, forward_fn
+    # 使用空格替换不间断空格
+    # 使用小写字母替换大写字母
+    text = text.replace('\u202f', ' ').replace('\xa0', ' ').lower()
+    # 在单词和标点符号之间插入空格
+    out = [' ' + char if i > 0 and no_space(char, text[i - 1]) else char
+           for i, char in enumerate(text)]
+    return ''.join(out)
 
-    def __call__(self, X, state):
-        X = F.one_hot(X.T, self.vocab_size).type(torch.float32)
-        return self.forward_fn(X, state, self.params)
 
-    def begin_state(self, batch_size, device):
-        return self.init_state(batch_size, self.num_hiddens, device)
+if __name__ == "__main__":
 
+    with open(r'E:\Data\MLData\fra.txt', 'r', encoding='utf-8') as f:
+        total_str_list = f.readlines()
+        print(len(total_str_list))
+        raw_text = f.read()
+    print(raw_text[:75], len(raw_text))
+    text = preprocess_nmt(raw_text)
+    print(text[:80])

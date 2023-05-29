@@ -21,17 +21,16 @@ from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
 
 
-lr = 0.00001
+lr = 0.001
 class_num = 5
 num_epochs = 500
 num_workers = 1
-model_name = "resnet50_pre_timm"
+model_name = "leNet"
 
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-workspace_root = r"D:\Data\MLData\videoFeature"
 train_data_file = os.path.join(workspace_root, "train\\train.csv")
 verify_data_file = os.path.join(workspace_root, "train\\verify.csv")
 test_data_file = os.path.join(workspace_root, "test_A\\test.csv")
@@ -54,11 +53,9 @@ def train(args):
     verify_data = DataLoader(verify_video_feature_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)  # 使用pytorch的数据加载函数加载数据
 
     model = create_net(model_name, class_num, args.resume).to(device)
-
-
-
+    criterion = nn.CrossEntropyLoss()  
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)      # 优化函数
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.9)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
 
     best_acc = 0
     for epoch in range(num_epochs):           
@@ -72,30 +69,27 @@ def train(args):
                 inputs = x.to(device)
                 labels = y.to(device)
                 augmentation = False
-                if random.random() > 0.7:
-                    augmentation = True
+                # if random.random() > 0.7:
+                #     augmentation = True
                 # zero the parameter gradients
                 optimizer.zero_grad()
                 # 定义两类损失函数
-                if augmentation:
-                    criterion = mixup_criterion
-                    inputs, labels, y_b, lam = data_augmentation(inputs, labels)
-                else:
-                    criterion = nn.CrossEntropyLoss()  
+                # if augmentation:
+                #     criterion = mixup_criterion
+                #     inputs, labels, y_b, lam = data_augmentation(inputs, labels)
+                # else:
+                #     criterion = nn.CrossEntropyLoss()  
 
 
                 # 前向传播
-                # outputs = model(inputs)
-                # loss = criterion(outputs, labels)   # 损失函数
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)   # 损失函数
 
-                outputs = model(inputs)            
-                # labels = labels.squeeze(dim=1)
-                
-                if augmentation:
-                    # y_b = y_b.squeeze(dim=1)
-                    loss = criterion(outputs, labels, y_b, lam)
-                else:
-                    loss = criterion(outputs, labels)
+                # outputs = model(inputs)                            
+                # if augmentation:
+                #     loss = criterion(outputs, labels, y_b, lam)
+                # else:
+                #     loss = criterion(outputs, labels)
 
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
@@ -162,11 +156,15 @@ def predictNet(net, test_data, log_file, batchSize):
         "3": {"total": 0, "error": 0},
         "4": {"total": 0, "error": 0}
         }
+    criterion = nn.CrossEntropyLoss() 
+    total_loss = 0
     for i, (features, labels) in enumerate(test_data):     
         X, Y = features.to(device), labels.to(device)
         # X = X.unsqueeze(0)
         # X = X.transpose(0, 1)
         y_hat = net(X)
+        loss = criterion(y_hat, labels)
+        total_loss += loss.item()
         Y = Y.squeeze(dim=1)
         y_hat = y_hat.max(1, keepdim=True)[1]
         Y = Y.max(1, keepdim=True)[1]
@@ -182,7 +180,7 @@ def predictNet(net, test_data, log_file, batchSize):
 
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
-    log_str = "train acc: %.4f, use time:%.2fs" % (acc, use_time)
+    log_str = "train acc: %.4f, loss: %.4f; use time:%.2fs" % (acc, total_loss, use_time)
     for cls in verify_result:
         total_num = verify_result[cls]["total"]
         true_num = total_num - verify_result[cls]["error"]

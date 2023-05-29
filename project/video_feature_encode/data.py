@@ -20,14 +20,14 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         if mode == "train":
             self.transform_norm = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[0.5], std=[0.5]),
-                transforms.RandomHorizontalFlip(),
-                transforms.Resize((IMG_HEIGH, IMG_WIDTH))
+                # transforms.Normalize(mean=[0.5], std=[0.5]),
+                # transforms.RandomHorizontalFlip(),
+                # transforms.Resize((IMG_HEIGH, IMG_WIDTH))
             ])
         else:
             self.transform_norm = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[0.5], std=[0.5]),
+                # transforms.Normalize(mean=[0.5], std=[0.5]),
             ])
 
         self.label_info = ["0", "1", "2", "3", "4"]
@@ -51,8 +51,8 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         depthmap = np.squeeze(depthmap, -1)
         depthmap = np.squeeze(depthmap, -1)
         # 随机去除帧
-        if self.mode == "train":
-            depthmap = self.__random_remove_frame(depthmap)
+        # if self.mode == "train":
+        #     depthmap = self.__random_remove_frame(depthmap)
         depthmap = self.transform_norm(depthmap)
         depthmap = depthmap.float()
         return depthmap

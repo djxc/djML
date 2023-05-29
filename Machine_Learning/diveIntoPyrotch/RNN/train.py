@@ -3,8 +3,8 @@ import torch
 from torch import nn
 
 from data import load_data_time_machine
-from utils import Timer, Accumulator
-from model import RNNModel
+from utils import Timer, Accumulator, sgd
+from model import RNNModel, get_params, get_lstm_params, init_gru_state, init_lstm_state, gru, lstm, RNNModelScratch
 
 
         
@@ -66,7 +66,7 @@ def train_ch8(net, train_iter, vocab, lr, num_epochs, device,
     if isinstance(net, nn.Module):
         updater = torch.optim.SGD(net.parameters(), lr)
     else:
-        updater = lambda batch_size: d2l.sgd(net.params, lr, batch_size)
+        updater = lambda batch_size: sgd(net.params, lr, batch_size)
     predict = lambda prefix: predict_ch8(prefix, 50, net, vocab, device)
     # 训练和预测
     for epoch in range(num_epochs):
@@ -94,7 +94,7 @@ def predict_ch8(prefix, num_preds, net, vocab, device):  #@save
         outputs.append(int(y.argmax(dim=1).reshape(1)))
     return ''.join([vocab.idx_to_token[i] for i in outputs])
 
-if __name__ == "__main__":   
+def train_rnn():
     device = None
     batch_size, num_steps = 32, 35
     num_epochs, lr = 500, 1
@@ -106,3 +106,37 @@ if __name__ == "__main__":
     train_ch8(net, train_iter, vocab, lr, num_epochs, device)
     result = predict_ch8('time traveller ', 10, net, vocab, device)
     print(result)
+
+def train_gru(train_iter, vocab, num_epochs, lr, num_hiddens, device=None, impleType="diy"):
+    if impleType == "diy":
+        model = RNNModelScratch(len(vocab), num_hiddens, device, get_params,
+                                    init_gru_state, gru)
+        train_ch8(model, train_iter, vocab, lr, num_epochs, device)
+    else:
+        num_inputs = len(vocab)
+        gru_layer = nn.GRU(num_inputs, num_hiddens)
+        model = RNNModel(gru_layer, len(vocab))
+        model = model.to(device)
+        train_ch8(model, train_iter, vocab, lr, num_epochs, device)
+
+def train_lstm(train_iter, vocab, num_epochs, lr, num_hiddens, device=None, impleType="diy"):
+    vocab_size = len(vocab)
+    if impleType == "diy":
+        model = RNNModelScratch(vocab_size, num_hiddens, device, get_lstm_params,
+                                    init_lstm_state, lstm)
+    else:
+        num_inputs = vocab_size
+        lstm_layer = nn.LSTM(num_inputs, num_hiddens)
+        model = RNNModel(lstm_layer, len(vocab))
+        model = model.to(device)
+    train_ch8(model, train_iter, vocab, lr, num_epochs, device)
+
+
+
+if __name__ == "__main__":   
+    batch_size, num_steps = 32, 35
+    num_epochs, lr = 500, 1
+    num_hiddens = 256
+    train_iter, vocab = load_data_time_machine(batch_size, num_steps)
+    # train_gru(train_iter, vocab, num_epochs, lr, num_hiddens)
+    train_lstm(train_iter, vocab, num_epochs, lr, num_hiddens)

@@ -3,8 +3,9 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 import json
+import random
 from PIL import Image
-workspace_root = r"D:\Data\MLData\videoFeature"
+from config import workspace_root
 
 def load_npy():
     """用numpy读取文件，每个文件为250*2408*1*1矩阵"""
@@ -102,11 +103,33 @@ def create_test_data_files():
     with open(os.path.join(test_root, "test.csv"), "w+", encoding="utf-8") as train_file:
         train_file.write(test_file_list)
 
+def k_folder(train_path):
+    """这里为3折交叉验证"""
+    verify1_list = []
+    verify2_list = []
+    with open(train_path) as label_file:
+        train_data_list = label_file.readlines()
+        for train_data in train_data_list:
+            if random.random() > 0.5:
+                verify1_list.append(train_data)
+            else:
+                verify2_list.append(train_data)
+
+    print(len(verify1_list), len(verify2_list))
+    # np.random.shuffle(label_list)
+    with open(os.path.join(workspace_root, "verify1.csv"), "w+", encoding="utf-8") as verify_file:
+        verify_file.writelines(verify1_list)
+
+    with open(os.path.join(workspace_root, "verify2.csv"), "w+", encoding="utf-8") as verify_file:
+        verify_file.writelines(verify2_list)
+
+
 if __name__ == "__main__":
     # load_npy()
     # statistic_label(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
     # save_npy_as_image(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
-    split_train_verfy(os.path.join(workspace_root, "train", "train_list.txt"))
-    create_test_data_files()
+    # split_train_verfy(os.path.join(workspace_root, "train", "train_list.txt"))
+    # create_test_data_files()
+    k_folder(r"E:\Data\MLData\videoFeature\train\train.csv")
 
 
