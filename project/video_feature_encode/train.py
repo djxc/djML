@@ -172,15 +172,16 @@ def predictNet(net, test_data, log_file, batchSize):
         accNum = accNum + result.sum().item()
         result = result.cpu().numpy()
         Y = Y.cpu().numpy()
-        for i, r in enumerate(result):
-            y = str(Y[i][0])
+        for j, r in enumerate(result):
+            y = str(Y[j][0])
             verify_result[y]["total"] = verify_result[y]["total"] + 1
             if not r[0]:
                 verify_result[y]["error"] = verify_result[y]["error"] + 1
 
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
-    log_str = "train acc: %.4f, loss: %.4f; use time:%.2fs" % (acc, total_loss, use_time)
+    log_str = "train acc: %.4f, loss: %.4f; use time:%.2fs\n" % (acc, total_loss/i, use_time)
+    print(log_str)
     for cls in verify_result:
         total_num = verify_result[cls]["total"]
         true_num = total_num - verify_result[cls]["error"]
@@ -189,7 +190,6 @@ def predictNet(net, test_data, log_file, batchSize):
                 total_num, verify_result[cls]["error"])
         log_file.write(class_result)
         print(class_result)        
-    print(log_str)
     log_file.write(log_str)
     return acc
 
