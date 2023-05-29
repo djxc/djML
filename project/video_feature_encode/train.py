@@ -24,7 +24,7 @@ from model import MLPModel, LeNet, create_net
 lr = 0.001
 class_num = 5
 num_epochs = 500
-num_workers = 1
+num_workers = 4
 model_name = "leNet"
 
 # 是否使用cuda
@@ -69,27 +69,27 @@ def train(args):
                 inputs = x.to(device)
                 labels = y.to(device)
                 augmentation = False
-                # if random.random() > 0.7:
-                #     augmentation = True
+                if random.random() > 0.5:
+                    augmentation = True
                 # zero the parameter gradients
                 optimizer.zero_grad()
                 # 定义两类损失函数
-                # if augmentation:
-                #     criterion = mixup_criterion
-                #     inputs, labels, y_b, lam = data_augmentation(inputs, labels)
-                # else:
-                #     criterion = nn.CrossEntropyLoss()  
+                if augmentation:
+                    criterion = mixup_criterion
+                    inputs, labels, y_b, lam = data_augmentation(inputs, labels)
+                else:
+                    criterion = nn.CrossEntropyLoss()  
 
 
                 # 前向传播
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)   # 损失函数
+                # outputs = model(inputs)
+                # loss = criterion(outputs, labels)   # 损失函数
 
-                # outputs = model(inputs)                            
-                # if augmentation:
-                #     loss = criterion(outputs, labels, y_b, lam)
-                # else:
-                #     loss = criterion(outputs, labels)
+                outputs = model(inputs)                            
+                if augmentation:
+                    loss = criterion(outputs, labels, y_b, lam)
+                else:
+                    loss = criterion(outputs, labels)
 
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
@@ -163,7 +163,7 @@ def predictNet(net, test_data, log_file, batchSize):
         # X = X.unsqueeze(0)
         # X = X.transpose(0, 1)
         y_hat = net(X)
-        loss = criterion(y_hat, labels)
+        loss = criterion(y_hat, Y)
         total_loss += loss.item()
         Y = Y.squeeze(dim=1)
         y_hat = y_hat.max(1, keepdim=True)[1]
@@ -180,7 +180,7 @@ def predictNet(net, test_data, log_file, batchSize):
 
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
-    log_str = "train acc: %.4f, loss: %.4f; use time:%.2fs\n" % (acc, total_loss/i, use_time)
+    log_str = "train acc: %.4f, loss: %.4f; use time:%.2fs\n" % (acc, total_loss/(i + 1), use_time)
     print(log_str)
     for cls in verify_result:
         total_num = verify_result[cls]["total"]
@@ -232,5 +232,5 @@ if __name__ == '__main__':
     elif args.action == "test":
         # python main.py test --ckpt weight_19.pth#
         model = create_net(model_name, class_num, args.resume).to(device)
-        model.load_state_dict(torch.load(os.path.join(workspace_root, 'wight_resnet101.pth')))        # 加载训练数据权重
+        model.load_state_dict(torch.load(os.path.join(workspace_root, 'wight_leNet_130.pth')))        # 加载训练数据权重
         test(model)

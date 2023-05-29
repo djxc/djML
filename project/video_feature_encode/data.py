@@ -22,7 +22,7 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
                 transforms.ToTensor(),
                 # transforms.Normalize(mean=[0.5], std=[0.5]),
                 # transforms.RandomHorizontalFlip(),
-                # transforms.Resize((IMG_HEIGH, IMG_WIDTH))
+                transforms.Resize((IMG_HEIGH, IMG_WIDTH))
             ])
         else:
             self.transform_norm = transforms.Compose([
@@ -51,8 +51,8 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         depthmap = np.squeeze(depthmap, -1)
         depthmap = np.squeeze(depthmap, -1)
         # 随机去除帧
-        # if self.mode == "train":
-        #     depthmap = self.__random_remove_frame(depthmap)
+        if self.mode == "train":
+            depthmap = self.__random_remove_frame(depthmap)
         depthmap = self.transform_norm(depthmap)
         depthmap = depthmap.float()
         return depthmap
@@ -63,7 +63,7 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
             2、
 
         """
-        remove_radio = random.randint(0, 30)/100
+        remove_radio = random.randint(0, 50)/100
         if remove_radio == 0.0 :
             return image_data
         remove_count = int(IMG_HEIGH * remove_radio)
