@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
  
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class FocalLoss(nn.Module):
     r"""
         This criterion is a implemenation of Focal Loss, which is proposed in 
@@ -71,7 +73,7 @@ class MultiClassFocalLossWithAlpha(nn.Module):
         :param reduction:
         """
         super(MultiClassFocalLossWithAlpha, self).__init__()
-        self.alpha = torch.tensor(alpha)
+        self.alpha = torch.tensor(alpha).to(device)
         self.gamma = gamma
         self.reduction = reduction
 

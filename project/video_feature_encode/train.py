@@ -26,7 +26,7 @@ lr = 0.001
 class_num = 5
 num_epochs = 500
 num_workers = 4
-model_name = "leNet"
+model_name = "leNet_bn"
 
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,7 +57,6 @@ def train(args):
     criterion = create_loss(loss_type)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
-    acc = predictNet(model, verify_data, log_file, batch_size) 
     best_acc = 0
     for epoch in range(num_epochs):           
         epoch_loss = 0
@@ -71,7 +70,7 @@ def train(args):
                 labels = y.to(device)
                 # zero the parameter gradients
                 optimizer.zero_grad()
-                if random.random() > 1.5:
+                if random.random() > 0.5:
                     criterion = mixup_criterion
                     inputs, labels, y_b, lam = data_augmentation(inputs, labels)
                     outputs = model(inputs)               
@@ -108,7 +107,7 @@ def create_loss(loss_type):
     if loss_type == "CE":
         criterion = nn.CrossEntropyLoss()  
     else:
-        criterion = MultiClassFocalLossWithAlpha([0.25, 0.15, 0.15, 0.15, 0.3])
+        criterion = MultiClassFocalLossWithAlpha([0.4, 0.1, 0.1, 0.1, 0.3])
     return criterion
 
 def mixup_criterion(pred, y_a, y_b, lam):
@@ -197,7 +196,7 @@ def predictNet(net, test_data, log_file, batchSize):
         class_result = "cls {0:s} acc is {1:1.3f}, total: {2:d}, error: {3:d}".format(cls, 
                 true_num/total_num, 
                 total_num, verify_result[cls]["error"])
-        log_file.write(class_result)
+        log_file.write(class_result + "\n")
         print(class_result)        
     log_file.write(log_str)
     return acc
@@ -241,5 +240,5 @@ if __name__ == '__main__':
     elif args.action == "test":
         # python main.py test --ckpt weight_19.pth#
         model = create_net(model_name, class_num, args.resume).to(device)
-        model.load_state_dict(torch.load(os.path.join(workspace_root, 'wight_leNet_90.pth')))        # 加载训练数据权重
+        model.load_state_dict(torch.load(os.path.join(workspace_root, 'bestleNet_model.pth')))        # 加载训练数据权重
         test(model)

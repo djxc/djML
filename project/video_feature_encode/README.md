@@ -74,6 +74,13 @@ cls 3 acc is 0.902, total: 51, error: 5
 cls 4 acc is 0.716, total: 67, error: 19
 验证集精度为0.7716，测试集精度为0.765，0类精度太低
 
+cls 0 acc is 0.593, total: 27, error: 11
+cls 1 acc is 0.841, total: 63, error: 10
+cls 2 acc is 0.825, total: 63, error: 11
+cls 3 acc is 0.902, total: 51, error: 5
+cls 4 acc is 0.731, total: 67, error: 18 280轮
+验证集精度为0.7826，测试集精度为0.775，0类精度太低
+
 无数据增强lenet：
 cls 0 acc is 0.808, total: 26, error: 5
 cls 1 acc is 0.706, total: 68, error: 20
@@ -110,6 +117,7 @@ cls 4 acc is 0.560, total: 75, error: 33
 - 10、过拟合
 在优化器中添加权重衰减超参数，weight_decay；droupOut层，测试需要关闭droupOut层，调用net.eval()即可。
   - 10.1 设置权重衰减，0.0001
+  - 10.2 增加归一化层。
 
 - 11、类别不均匀，难易程度不同
-采用focalloss损失函数，
+采用focalloss损失函数，五类权重分别设置0.4， 0.1， 0.1， 0.1， 0.3，学习率0.001，训练500轮，没有效果。 
