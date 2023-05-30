@@ -57,7 +57,7 @@ def train(args):
     criterion = create_loss(loss_type)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
-
+    acc = predictNet(model, verify_data, log_file, batch_size) 
     best_acc = 0
     for epoch in range(num_epochs):           
         epoch_loss = 0
@@ -113,7 +113,8 @@ def create_loss(loss_type):
 
 def mixup_criterion(pred, y_a, y_b, lam):
     """损失函数"""
-    c = nn.CrossEntropyLoss()    
+    # c = nn.CrossEntropyLoss()    
+    c = create_loss(loss_type)
     return lam * c(pred, y_a) + (1 - lam) * c(pred, y_b)
 
 def data_augmentation(X, Y):
@@ -163,17 +164,28 @@ def predictNet(net, test_data, log_file, batchSize):
         loss = criterion(y_hat, Y)
         total_loss += loss.item()
         Y = Y.squeeze(dim=1)
-        y_hat = y_hat.max(1, keepdim=True)[1]
-        Y = Y.max(1, keepdim=True)[1]
+        if loss_type == "CE":
+            y_hat = y_hat.max(1, keepdim=True)[1]
+            Y = Y.max(1, keepdim=True)[1]
+        else:
+            y_hat = y_hat.max(1, keepdim=True).indices.squeeze(dim=1)
         result = torch.eq(y_hat, Y)
         accNum = accNum + result.sum().item()
         result = result.cpu().numpy()
         Y = Y.cpu().numpy()
-        for j, r in enumerate(result):
-            y = str(Y[j][0])
-            verify_result[y]["total"] = verify_result[y]["total"] + 1
-            if not r[0]:
-                verify_result[y]["error"] = verify_result[y]["error"] + 1
+
+        if loss_type == "CE":
+            for j, r in enumerate(result):
+                y = str(Y[j][0])
+                verify_result[y]["total"] = verify_result[y]["total"] + 1
+                if not r[0]:
+                    verify_result[y]["error"] = verify_result[y]["error"] + 1
+        else:
+            for j, r in enumerate(result):
+                y = str(Y[j])
+                verify_result[y]["total"] = verify_result[y]["total"] + 1
+                if not r:
+                    verify_result[y]["error"] = verify_result[y]["error"] + 1
 
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
