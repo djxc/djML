@@ -42,8 +42,9 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
             image_path, label, _ = self.imageDatas[idx].replace("\n", "").split(",")
             label = label.strip()
             image = self.__open_npy(image_path)
-            label_index = self.label_info.index(label)
-            label = torch.zeros(1, 5).scatter_(1, torch.tensor([label_index]).unsqueeze(1), 1).squeeze()
+            # label_index = self.label_info.index(label)
+            # label = torch.zeros(1, 5).scatter_(1, torch.tensor([label_index]).unsqueeze(1), 1).squeeze()
+            label = torch.tensor([int(label)])
             return (image, label)
         
     def __open_npy(self, npy_path):

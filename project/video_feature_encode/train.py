@@ -19,6 +19,7 @@ import random
 from config import workspace_root
 from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
+from dloss import MultiClassFocalLossWithAlpha
 
 
 lr = 0.001
@@ -54,7 +55,8 @@ def train(args):
 
     model = create_net(model_name, class_num, args.resume).to(device)
     criterion = nn.CrossEntropyLoss()  
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)      # 优化函数
+    criterion = MultiClassFocalLossWithAlpha([0.25, 0.15, 0.15, 0.15, 0.3])
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
 
     best_acc = 0
@@ -68,28 +70,18 @@ def train(args):
                 # 将输入的要素用gpu计算
                 inputs = x.to(device)
                 labels = y.to(device)
-                augmentation = False
-                if random.random() > 0.5:
-                    augmentation = True
                 # zero the parameter gradients
                 optimizer.zero_grad()
-                # 定义两类损失函数
-                if augmentation:
+                if random.random() > 1.5:
                     criterion = mixup_criterion
                     inputs, labels, y_b, lam = data_augmentation(inputs, labels)
+                    outputs = model(inputs)               
+                    loss = criterion(outputs, labels, y_b, lam)             
                 else:
-                    criterion = nn.CrossEntropyLoss()  
-
-
-                # 前向传播
-                # outputs = model(inputs)
-                # loss = criterion(outputs, labels)   # 损失函数
-
-                outputs = model(inputs)                            
-                if augmentation:
-                    loss = criterion(outputs, labels, y_b, lam)
-                else:
-                    loss = criterion(outputs, labels)
+                    # criterion = nn.CrossEntropyLoss()  
+                    criterion = MultiClassFocalLossWithAlpha([0.25, 0.15, 0.15, 0.15, 0.3])
+                    outputs = model(inputs)                            
+                    loss = criterion(outputs, labels)                          
 
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
@@ -120,7 +112,6 @@ def mixup_criterion(pred, y_a, y_b, lam):
 
 def data_augmentation(X, Y):
     # 数据增强       
-    # X, Y, y_b, lam = cutmix_data(X, Y, use_cuda=use_cuda)
     X, Y, y_b, lam = mixup_data(X, Y)
     X, Y, y_b = map(torch.autograd.Variable, (X, Y, y_b))
     return X, Y, y_b, lam
@@ -136,7 +127,7 @@ def mixup_data(x, y, alpha=1.0, use_cuda=True):
     batch_size = x.size()[0]
     index = torch.randperm(batch_size)
     if use_cuda:
-        index = torch.randperm(batch_size).cuda()
+        index = torch.randperm(batch_size).to(device)
 
     mixed_x = lam * x + (1 - lam) * x[index, :]
     y_a, y_b = y, y[index]
@@ -232,5 +223,5 @@ if __name__ == '__main__':
     elif args.action == "test":
         # python main.py test --ckpt weight_19.pth#
         model = create_net(model_name, class_num, args.resume).to(device)
-        model.load_state_dict(torch.load(os.path.join(workspace_root, 'wight_leNet_130.pth')))        # 加载训练数据权重
+        model.load_state_dict(torch.load(os.path.join(workspace_root, 'wight_leNet_90.pth')))        # 加载训练数据权重
         test(model)

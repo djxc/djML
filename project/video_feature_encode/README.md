@@ -74,10 +74,26 @@ cls 3 acc is 0.902, total: 51, error: 5
 cls 4 acc is 0.716, total: 67, error: 19
 验证集精度为0.7716，测试集精度为0.765，0类精度太低
 
+无数据增强lenet：
+cls 0 acc is 0.808, total: 26, error: 5
+cls 1 acc is 0.706, total: 68, error: 20
+cls 2 acc is 0.722, total: 54, error: 15
+cls 3 acc is 0.792, total: 48, error: 10
+cls 4 acc is 0.533, total: 75, error: 35
+60轮，验证集精度为0.6838，测试集精度为0.7325，0类权重较大
+
+cls 0 acc is 0.808, total: 26, error: 5
+cls 1 acc is 0.779, total: 68, error: 15
+cls 2 acc is 0.778, total: 54, error: 12
+cls 3 acc is 0.750, total: 48, error: 12
+cls 4 acc is 0.560, total: 75, error: 33
+90轮，验证集精度0.7132，测试集精度0.7475
+
 - 5、数据增强，如何进行？
   - 1、垂直方向为时间方向，是否可以随机减少某些帧数据，对数据不会改变本质。随机裁剪对模型好像效果不明显。增加mixup效果明显，验证集精度稳定在0.76-0.78之间。最好0.7754，0类为0.63；4类为0.716
   - 2、概率垂直翻转，事件可能是堵车、车祸，时间的正反应该不会改变其事件的本质。
-  - 3
+  - 3、mixup
+  lenet无数据增强精度最高在0.7多一点，采用mixup数据增强最高可达0.713， 采用数据增强精度可到达0.77-0.78
 
 - 6、使用k折交叉验证
 将train.csv中每类取一半作为验证集，之前的验证集合并到train.csv中
@@ -90,3 +106,10 @@ cls 4 acc is 0.716, total: 67, error: 19
 
 - 9、loss不下降
 网络结构有问题、激活函数存在问题、训练时间不够、权重初始化问题、正则化问题、优化器问题、学习率问题、梯度消失或爆炸、batchsize太小会导致loss波动，难以收敛、数据集存在噪音异常值、特征选择不对
+
+- 10、过拟合
+在优化器中添加权重衰减超参数，weight_decay；droupOut层，测试需要关闭droupOut层，调用net.eval()即可。
+  - 10.1 设置权重衰减，0.0001
+
+- 11、类别不均匀，难易程度不同
+采用focalloss损失函数，
