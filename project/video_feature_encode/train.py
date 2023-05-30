@@ -16,7 +16,7 @@ from tqdm import tqdm
 import numpy as np
 import random
 
-from config import workspace_root
+from config import workspace_root, loss_type
 from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
 from dloss import MultiClassFocalLossWithAlpha
@@ -54,8 +54,7 @@ def train(args):
     verify_data = DataLoader(verify_video_feature_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)  # 使用pytorch的数据加载函数加载数据
 
     model = create_net(model_name, class_num, args.resume).to(device)
-    criterion = nn.CrossEntropyLoss()  
-    criterion = MultiClassFocalLossWithAlpha([0.25, 0.15, 0.15, 0.15, 0.3])
+    criterion = create_loss(loss_type)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
 
@@ -78,8 +77,7 @@ def train(args):
                     outputs = model(inputs)               
                     loss = criterion(outputs, labels, y_b, lam)             
                 else:
-                    # criterion = nn.CrossEntropyLoss()  
-                    criterion = MultiClassFocalLossWithAlpha([0.25, 0.15, 0.15, 0.15, 0.3])
+                    criterion = create_loss(loss_type)
                     outputs = model(inputs)                            
                     loss = criterion(outputs, labels)                          
 
@@ -104,6 +102,14 @@ def train(args):
         log_file.write(log_info) 
         log_file.flush()
         scheduler.step()
+
+
+def create_loss(loss_type):
+    if loss_type == "CE":
+        criterion = nn.CrossEntropyLoss()  
+    else:
+        criterion = MultiClassFocalLossWithAlpha([0.25, 0.15, 0.15, 0.15, 0.3])
+    return criterion
 
 def mixup_criterion(pred, y_a, y_b, lam):
     """损失函数"""
@@ -147,7 +153,7 @@ def predictNet(net, test_data, log_file, batchSize):
         "3": {"total": 0, "error": 0},
         "4": {"total": 0, "error": 0}
         }
-    criterion = nn.CrossEntropyLoss() 
+    criterion = create_loss(loss_type)
     total_loss = 0
     for i, (features, labels) in enumerate(test_data):     
         X, Y = features.to(device), labels.to(device)
