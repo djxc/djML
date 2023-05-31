@@ -124,12 +124,46 @@ def k_folder(train_path):
         verify_file.writelines(verify2_list)
 
 
+def split_train_part(label_path, part_num=5):
+    """把数据分为5份"""
+    root_path = Path(label_path).parent
+    data_root = os.path.join(root_path, "train_feature")
+    label_list = []
+    with open(label_path) as label_file:
+        labels = json.loads(label_file.read())
+        for i, label in enumerate(labels):
+            cls = labels[label]
+            data_file = os.path.join(data_root, label)
+            label_list.append("{}, {},\n".format(data_file, cls))
+    np.random.shuffle(label_list)
+    label_size = len(label_list)
+    part_size = int(label_size / part_num)
+    part_data_list = []
+    for i in range(part_num):
+        if i == (part_num - 1):
+            part_data = label_list[i * part_size:]
+        else:
+            part_data = label_list[i * part_size: (i + 1) * part_size]
+        part_data_list.append(part_data)
+    
+    for i in range(part_num):
+        verify_list = part_data_list[i]
+        train_list = []
+        for j in range(part_num):
+            if i != j:
+                train_list.extend(part_data_list[j])            
+        with open(os.path.join(root_path, "train_{}.csv".format(i)), "w+", encoding="utf-8") as train_file:
+            train_file.writelines(train_list)  
+        with open(os.path.join(root_path, "verify_{}.csv".format(i)), "w+", encoding="utf-8") as verify_file:
+            verify_file.writelines(verify_list)        
+
 if __name__ == "__main__":
     # load_npy()
     # statistic_label(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
     # save_npy_as_image(r"E:\Data\MLData\视觉特征编码\train\train_list.txt")
     # split_train_verfy(os.path.join(workspace_root, "train", "train_list.txt"))
     # create_test_data_files()
-    k_folder(r"E:\Data\MLData\videoFeature\train\train.csv")
+    # k_folder(r"E:\Data\MLData\videoFeature\train\train.csv")
+    split_train_part(r"E:\Data\MLData\videoFeature\train\train_list.txt")
 
 

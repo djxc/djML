@@ -16,24 +16,17 @@ from tqdm import tqdm
 import numpy as np
 import random
 
-from config import workspace_root, loss_type
+from config import workspace_root, loss_type, lr, class_num, num_epochs, num_workers, model_name, data_part, weight_decay
 from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
 from dloss import MultiClassFocalLossWithAlpha
-
-
-lr = 0.001
-class_num = 5
-num_epochs = 500
-num_workers = 4
-model_name = "leNet_bn"
 
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-train_data_file = os.path.join(workspace_root, "train\\train.csv")
-verify_data_file = os.path.join(workspace_root, "train\\verify.csv")
+train_data_file = os.path.join(workspace_root, "train\\train_{}.csv".format(data_part))
+verify_data_file = os.path.join(workspace_root, "train\\verify_{}.csv".format(data_part))
 test_data_file = os.path.join(workspace_root, "test_A\\test.csv")
 
 def train(args):
@@ -55,8 +48,9 @@ def train(args):
 
     model = create_net(model_name, class_num, args.resume).to(device)
     criterion = create_loss(loss_type)
-    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)      # 优化函数
+    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
+    predictNet(model, verify_data, log_file, batch_size)
     best_acc = 0
     for epoch in range(num_epochs):           
         epoch_loss = 0
@@ -91,11 +85,11 @@ def train(args):
             if acc > best_acc:
                 best_acc = acc
                 print("save best model, epoch:{}".format(epoch + 1))
-                torch.save(model.state_dict(), os.path.join(workspace_root, 'best{}_model.pth'.format(model_name)))        # 保存模型参数，使用时直接加载保存的path文件
+                torch.save(model.state_dict(), os.path.join(workspace_root, 'best_model_{}_{}.pth'.format(model_name, data_part)))        # 保存模型参数，使用时直接加载保存的path文件
             model.train()            
         # 每10轮保存一次结果
         if epoch > 0 and (epoch + 1) % 10 == 0:
-            torch.save(model.state_dict(), os.path.join(workspace_root, 'wight_{}_{}.pth'.format(model_name, epoch + 1)))        # 保存模型参数，使用时直接加载保存的path文件
+            torch.save(model.state_dict(), os.path.join(workspace_root, 'wight_{}_{}_{}.pth'.format(model_name, data_part, epoch + 1)))        # 保存模型参数，使用时直接加载保存的path文件
         endTime = time.time()
         log_info = 'epoch %d, loss %.4f, lr %.6f, use time:%.2fs\n' % (epoch + 1, epoch_loss/step, current_lr, endTime - startTime)
         log_file.write(log_info) 
@@ -147,11 +141,11 @@ def predictNet(net, test_data, log_file, batchSize):
     accNum = 0
     net.eval()
     verify_result = {
-        "0": {"total": 0, "error": 0},
-        "1": {"total": 0, "error": 0},
-        "2": {"total": 0, "error": 0},
-        "3": {"total": 0, "error": 0},
-        "4": {"total": 0, "error": 0}
+        "0": {"total": 0, "error": 0, "error_info": {}},
+        "1": {"total": 0, "error": 0, "error_info": {}},
+        "2": {"total": 0, "error": 0, "error_info": {}},
+        "3": {"total": 0, "error": 0, "error_info": {}},
+        "4": {"total": 0, "error": 0, "error_info": {}}
         }
     criterion = create_loss(loss_type)
     total_loss = 0
@@ -179,12 +173,22 @@ def predictNet(net, test_data, log_file, batchSize):
                 verify_result[y]["total"] = verify_result[y]["total"] + 1
                 if not r[0]:
                     verify_result[y]["error"] = verify_result[y]["error"] + 1
+                    y_pre = str(y_hat[j].cpu().item())
+                    if y_pre not in verify_result[y]["error_info"]:
+                        verify_result[y]["error_info"][y_pre] = 1
+                    else:
+                        verify_result[y]["error_info"][y_pre] = verify_result[y]["error_info"][y_pre] + 1
         else:
             for j, r in enumerate(result):
                 y = str(Y[j])
                 verify_result[y]["total"] = verify_result[y]["total"] + 1
                 if not r:
                     verify_result[y]["error"] = verify_result[y]["error"] + 1
+                    y_pre = str(y_hat[j].cpu().item())
+                    if y_pre not in verify_result[y]["error_info"]:
+                        verify_result[y]["error_info"][y_pre] = 1
+                    else:
+                        verify_result[y]["error_info"][y_pre] = verify_result[y]["error_info"][y_pre] + 1
 
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
@@ -193,9 +197,11 @@ def predictNet(net, test_data, log_file, batchSize):
     for cls in verify_result:
         total_num = verify_result[cls]["total"]
         true_num = total_num - verify_result[cls]["error"]
+        error_info_str = json.dumps(verify_result[cls]["error_info"])
         class_result = "cls {0:s} acc is {1:1.3f}, total: {2:d}, error: {3:d}".format(cls, 
                 true_num/total_num, 
                 total_num, verify_result[cls]["error"])
+        class_result = "{}, {}".format(class_result, error_info_str)
         log_file.write(class_result + "\n")
         print(class_result)        
     log_file.write(log_str)
