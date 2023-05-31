@@ -201,7 +201,7 @@ def predictNet(net, test_data, log_file, batchSize):
         class_result = "cls {0:s} acc is {1:1.3f}, total: {2:d}, error: {3:d}".format(cls, 
                 true_num/total_num, 
                 total_num, verify_result[cls]["error"])
-        class_result = "{}, {}".format(class_result, error_info_str)
+        class_result = "{}, error_info: {}".format(class_result, error_info_str)
         log_file.write(class_result + "\n")
         print(class_result)        
     log_file.write(log_str)
@@ -246,5 +246,5 @@ if __name__ == '__main__':
     elif args.action == "test":
         # python main.py test --ckpt weight_19.pth#
         model = create_net(model_name, class_num, args.resume).to(device)
-        model.load_state_dict(torch.load(os.path.join(workspace_root, 'bestleNet_model.pth')))        # 加载训练数据权重
+        model.load_state_dict(torch.load(os.path.join(workspace_root, 'best_model_leNet_bn_0.pth')))        # 加载训练数据权重
         test(model)
