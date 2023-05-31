@@ -164,6 +164,6 @@ if __name__ == "__main__":
     # split_train_verfy(os.path.join(workspace_root, "train", "train_list.txt"))
     # create_test_data_files()
     # k_folder(r"E:\Data\MLData\videoFeature\train\train.csv")
-    split_train_part(r"E:\Data\MLData\videoFeature\train\train_list.txt")
+    split_train_part(r"D:\Data\MLData\videoFeature\train\train_list.txt")
 
 

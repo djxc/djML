@@ -139,7 +139,6 @@ def predictNet(net, test_data, log_file, batchSize):
     ''' 预测 '''
     startTime = time.time()
     accNum = 0
-    net.eval()
     verify_result = {
         "0": {"total": 0, "error": 0, "error_info": {}},
         "1": {"total": 0, "error": 0, "error_info": {}},
@@ -149,63 +148,65 @@ def predictNet(net, test_data, log_file, batchSize):
         }
     criterion = create_loss(loss_type)
     total_loss = 0
-    for i, (features, labels) in enumerate(test_data):     
-        X, Y = features.to(device), labels.to(device)
-        # X = X.unsqueeze(0)
-        # X = X.transpose(0, 1)
-        y_hat = net(X)
-        loss = criterion(y_hat, Y)
-        total_loss += loss.item()
-        Y = Y.squeeze(dim=1)
-        if loss_type == "CE":
-            y_hat = y_hat.max(1, keepdim=True)[1]
-            Y = Y.max(1, keepdim=True)[1]
-        else:
-            y_hat = y_hat.max(1, keepdim=True).indices.squeeze(dim=1)
-        result = torch.eq(y_hat, Y)
-        accNum = accNum + result.sum().item()
-        result = result.cpu().numpy()
-        Y = Y.cpu().numpy()
+    net.eval() 
+    with torch.no_grad():
+        for i, (features, labels) in enumerate(test_data):     
+            X, Y = features.to(device), labels.to(device)
+            # X = X.unsqueeze(0)
+            # X = X.transpose(0, 1)
+            y_hat = net(X)
+            loss = criterion(y_hat, Y)
+            total_loss += loss.item()
+            Y = Y.squeeze(dim=1)
+            if loss_type == "CE":
+                y_hat = y_hat.max(1, keepdim=True)[1]
+                Y = Y.max(1, keepdim=True)[1]
+            else:
+                y_hat = y_hat.max(1, keepdim=True).indices.squeeze(dim=1)
+            result = torch.eq(y_hat, Y)
+            accNum = accNum + result.sum().item()
+            result = result.cpu().numpy()
+            Y = Y.cpu().numpy()
 
-        if loss_type == "CE":
-            for j, r in enumerate(result):
-                y = str(Y[j][0])
-                verify_result[y]["total"] = verify_result[y]["total"] + 1
-                if not r[0]:
-                    verify_result[y]["error"] = verify_result[y]["error"] + 1
-                    y_pre = str(y_hat[j].cpu().item())
-                    if y_pre not in verify_result[y]["error_info"]:
-                        verify_result[y]["error_info"][y_pre] = 1
-                    else:
-                        verify_result[y]["error_info"][y_pre] = verify_result[y]["error_info"][y_pre] + 1
-        else:
-            for j, r in enumerate(result):
-                y = str(Y[j])
-                verify_result[y]["total"] = verify_result[y]["total"] + 1
-                if not r:
-                    verify_result[y]["error"] = verify_result[y]["error"] + 1
-                    y_pre = str(y_hat[j].cpu().item())
-                    if y_pre not in verify_result[y]["error_info"]:
-                        verify_result[y]["error_info"][y_pre] = 1
-                    else:
-                        verify_result[y]["error_info"][y_pre] = verify_result[y]["error_info"][y_pre] + 1
+            if loss_type == "CE":
+                for j, r in enumerate(result):
+                    y = str(Y[j][0])
+                    verify_result[y]["total"] = verify_result[y]["total"] + 1
+                    if not r[0]:
+                        verify_result[y]["error"] = verify_result[y]["error"] + 1
+                        y_pre = str(y_hat[j].cpu().item())
+                        if y_pre not in verify_result[y]["error_info"]:
+                            verify_result[y]["error_info"][y_pre] = 1
+                        else:
+                            verify_result[y]["error_info"][y_pre] = verify_result[y]["error_info"][y_pre] + 1
+            else:
+                for j, r in enumerate(result):
+                    y = str(Y[j])
+                    verify_result[y]["total"] = verify_result[y]["total"] + 1
+                    if not r:
+                        verify_result[y]["error"] = verify_result[y]["error"] + 1
+                        y_pre = str(y_hat[j].cpu().item())
+                        if y_pre not in verify_result[y]["error_info"]:
+                            verify_result[y]["error_info"][y_pre] = 1
+                        else:
+                            verify_result[y]["error_info"][y_pre] = verify_result[y]["error_info"][y_pre] + 1
 
-    use_time = time.time() - startTime
-    acc = accNum / (len(test_data) * batchSize)
-    log_str = "train acc: %.4f, loss: %.4f; use time:%.2fs\n" % (acc, total_loss/(i + 1), use_time)
-    print(log_str)
-    for cls in verify_result:
-        total_num = verify_result[cls]["total"]
-        true_num = total_num - verify_result[cls]["error"]
-        error_info_str = json.dumps(verify_result[cls]["error_info"])
-        class_result = "cls {0:s} acc is {1:1.3f}, total: {2:d}, error: {3:d}".format(cls, 
-                true_num/total_num, 
-                total_num, verify_result[cls]["error"])
-        class_result = "{}, error_info: {}".format(class_result, error_info_str)
-        log_file.write(class_result + "\n")
-        print(class_result)        
-    log_file.write(log_str)
-    return acc
+        use_time = time.time() - startTime
+        acc = accNum / (len(test_data) * batchSize)
+        log_str = "train acc: %.4f, loss: %.4f; use time:%.2fs\n" % (acc, total_loss/(i + 1), use_time)
+        print(log_str)
+        for cls in verify_result:
+            total_num = verify_result[cls]["total"]
+            true_num = total_num - verify_result[cls]["error"]
+            error_info_str = json.dumps(verify_result[cls]["error_info"])
+            class_result = "cls {0:s} acc is {1:1.3f}, total: {2:d}, error: {3:d}".format(cls, 
+                    true_num/total_num, 
+                    total_num, verify_result[cls]["error"])
+            class_result = "{}, error_info: {}".format(class_result, error_info_str)
+            log_file.write(class_result + "\n")
+            print(class_result)        
+        log_file.write(log_str)
+        return acc
 
 def test(net):
     ''' 测试 '''
