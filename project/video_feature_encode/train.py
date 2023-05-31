@@ -50,7 +50,7 @@ def train(args):
     criterion = create_loss(loss_type)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
-    predictNet(model, verify_data, log_file, batch_size)
+    # predictNet(model, verify_data, log_file, batch_size)
     best_acc = 0
     for epoch in range(num_epochs):           
         epoch_loss = 0

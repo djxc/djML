@@ -321,8 +321,8 @@ def create_net(net_name: str, class_num: int, resume=""):
             nn.Linear(num_ftrs, class_num)
         )
     elif net_name == "resNet101_pre":
-        net = torchvision.models.resnet101(pretrained=True)
-        # net = timm.create_model("resnet101d", pretrained=True)
+        # net = torchvision.models.resnet101(pretrained=True)
+        net = timm.create_model("resnet101d", pretrained=True)
         net.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         # set_parameter_requires_grad(model_ft, False)  # 固定住前面的网络层
         num_ftrs = net.fc.in_features
@@ -331,7 +331,8 @@ def create_net(net_name: str, class_num: int, resume=""):
             nn.Linear(num_ftrs, class_num)
         )
     elif net_name == "resnext101":
-        net = timm.create_model("resnext101_32x4d", pretrained=True)
+        net = torchvision.models.resnext101_32x8d(pretrained=True)
+        # net = timm.create_model("resnext101_32x4d", pretrained=True)
         net.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         n_features = net.fc.in_features
         net.fc = nn.Linear(n_features, class_num)
