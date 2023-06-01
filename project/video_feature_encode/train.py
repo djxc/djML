@@ -35,7 +35,7 @@ def train(args):
         2、加载数据，使用batch
         3、训练模型，输入
     """
-    log_file = open(r"{}\train_log_{}_pre.txt".format(workspace_root, model_name), "a+")
+    log_file = open(r"{}\train_log_{}_{}.txt".format(workspace_root, model_name, data_part), "a+")
     log_file.write("{} start training……\r\n".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))) 
     
     batch_size = args.batch_size                    # 每次计算的batch大小
