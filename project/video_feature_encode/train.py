@@ -16,7 +16,7 @@ from tqdm import tqdm
 import numpy as np
 import random
 
-from config import workspace_root, loss_type, lr, class_num, num_epochs, num_workers, model_name, data_part, weight_decay
+from config import workspace_root, loss_type, lr, class_num, num_epochs, num_workers, model_name, data_part, weight_decay, resume_model
 from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
 from dloss import MultiClassFocalLossWithAlpha
@@ -210,7 +210,7 @@ def predictNet(net, test_data, log_file, batchSize):
 def test(net):
     ''' 测试 '''
     test_video_feature_dataset = VideoFeatureDataset(test_data_file, mode="test")
-    test_data = DataLoader(test_video_feature_dataset, batch_size=1, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
+    test_data = DataLoader(test_video_feature_dataset, batch_size=1, num_workers=4)  # 使用pytorch的数据加载函数加载数据
     net.eval()
     result = {}
     with tqdm(total=len(test_data.dataset), desc="test", unit='img') as pbar:
@@ -225,6 +225,25 @@ def test(net):
             pbar.update(features.shape[0])   
         print(result)
         with open(os.path.join(workspace_root, "result.txt"), "w+") as result_f:
+            result_f.write(json.dumps(result))
+
+def test_kf(net, k_num):
+    ''' 测试 '''
+    test_video_feature_dataset = VideoFeatureDataset(test_data_file, mode="test")
+    test_data = DataLoader(test_video_feature_dataset, batch_size=1, num_workers=4)  # 使用pytorch的数据加载函数加载数据
+    net.eval()
+    result = {}
+    with tqdm(total=len(test_data.dataset), desc="test", unit='img') as pbar:
+        for i, (features, image_path) in enumerate(test_data):     
+            X = features.to(device)          
+            y_hat = net(X)
+            result_array = y_hat.squeeze(0).detach().numpy().tolist()
+            image_name = Path(image_path[0]).name
+            result[image_name] = result_array
+
+            pbar.update(features.shape[0])   
+        print(result)
+        with open(os.path.join(workspace_root, "result_{}.txt".format(k_num)), "w+") as result_f:
             result_f.write(json.dumps(result))
 
 
@@ -246,5 +265,7 @@ if __name__ == '__main__':
     elif args.action == "test":
         # python main.py test --ckpt weight_19.pth#
         model = create_net(model_name, class_num, args.resume).to(device)
-        model.load_state_dict(torch.load(os.path.join(workspace_root, 'best_model_leNet_bn_0.pth')))        # 加载训练数据权重
-        test(model)
+        print("load {} ...".format(resume_model))
+        model.load_state_dict(torch.load(os.path.join(workspace_root, resume_model)))        # 加载训练数据权重
+        # test(model)
+        test_kf(model, data_part)

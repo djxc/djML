@@ -103,7 +103,37 @@ cls 1 acc is 0.884, total: 43, error: 5, {"3": 3, "4": 2}
 cls 2 acc is 0.870, total: 46, error: 6, {"4": 5, "3": 1}
 cls 3 acc is 0.939, total: 33, error: 2, {"4": 1, "1": 1}
 cls 4 acc is 0.775, total: 40, error: 9, {"2": 4, "3": 4, "0": 1}
-从头训练58轮，验证集精度0.7969，测试集精度0.79
+从头训练数据0，58轮，验证集精度0.7969，测试集精度0.79
+
+cls 0 acc is 0.889, total: 18, error: 2, error_info: {"4": 2}
+cls 1 acc is 0.842, total: 38, error: 6, error_info: {"0": 2, "4": 1, "3": 3}
+cls 2 acc is 0.872, total: 47, error: 6, error_info: {"4": 5, "1": 1}
+cls 3 acc is 0.800, total: 40, error: 8, error_info: {"1": 4, "4": 4}
+cls 4 acc is 0.757, total: 37, error: 9, error_info: {"2": 5, "0": 1, "3": 2, "1": 1}
+从头训练数据1，38轮，验证集精度0.776，测试集精度0.7775
+
+
+cls 0 acc is 0.652, total: 23, error: 8, error_info: {"3": 3, "4": 2, "1": 3}
+cls 1 acc is 0.816, total: 38, error: 7, error_info: {"3": 6, "2": 1}
+cls 2 acc is 0.824, total: 34, error: 6, error_info: {"3": 1, "0": 1, "1": 2, "4": 2}
+cls 3 acc is 0.771, total: 48, error: 11, error_info: {"4": 5, "2": 2, "1": 4}
+cls 4 acc is 0.676, total: 37, error: 12, error_info: {"2": 9, "3": 1, "1": 1, "0": 1}
+从头训练数据2，42轮，验证集精度0.7083，测试集精度
+
+cls 0 acc is 0.714, total: 21, error: 6, error_info: {"4": 3, "1": 2, "3": 1}
+cls 1 acc is 0.786, total: 42, error: 9, error_info: {"4": 4, "3": 3, "2": 1, "0": 1}
+cls 2 acc is 0.684, total: 38, error: 12, error_info: {"0": 2, "4": 6, "3": 1, "1": 3}
+cls 3 acc is 0.943, total: 35, error: 2, error_info: {"1": 2}
+cls 4 acc is 0.750, total: 44, error: 11, error_info: {"0": 4, "2": 4, "1": 3}
+从头训练数据3，60轮，验证集精度0.7292，测试集精度
+
+[
+  [0.722, 0.884, 0.870, 0.939, 0.775],
+  [0.889, 0.842, 0.872, 0.800, 0.757],
+  [0.652, 0.816, 0.824, 0.771, 0.676],
+  [0.714, 0.786, 0.684, 0.943, 0.75]
+]
+
 
 - 5、数据增强，如何进行？
   - 1、垂直方向为时间方向，是否可以随机减少某些帧数据，对数据不会改变本质。随机裁剪对模型好像效果不明显。增加mixup效果明显，验证集精度稳定在0.76-0.78之间。最好0.7754，0类为0.63；4类为0.716
@@ -133,3 +163,10 @@ cls 4 acc is 0.775, total: 40, error: 9, {"2": 4, "3": 4, "0": 1}
 
 - 12、集成学习
 可以用卷积神经网络或transformer提取特征，最后用xgboost（一种基于决策树的算法）进行分类。
+
+
+- 13、transformer
+transformer应用于图像，首先将图像划分为不同的小块（token），经过patch embedding每一块作为一个序列输入到transformer中。然后在经过position embedding，给数据添加类别以及位置编码。
+
+- 14、自定义模型
+首先在每一帧（一行）上进行滑动窗口提取特征，然后池化操作，提取每一帧的数据并缩小数据量。然后在进行时间维度滑动窗口池化造作提取时间维度的特征并缩小数据量、
