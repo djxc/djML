@@ -155,7 +155,88 @@ def split_train_part(label_path, part_num=5):
         with open(os.path.join(root_path, "train_{}.csv".format(i)), "w+", encoding="utf-8") as train_file:
             train_file.writelines(train_list)  
         with open(os.path.join(root_path, "verify_{}.csv".format(i)), "w+", encoding="utf-8") as verify_file:
-            verify_file.writelines(verify_list)        
+            verify_file.writelines(verify_list)   
+
+def max_frequency(result0, result1, result2, result3):
+    result_map = {}
+    for k in result0:
+        r0 = np.array(result0[k]).argmax()
+        r1 = np.array(result1[k]).argmax()
+        r2 = np.array(result2[k]).argmax()
+        r3 = np.array(result3[k]).argmax()
+        cls_array = np.array([r0, r1, r2, r3])
+        # 找频率最高的
+        # 按照每个模型的准确率赋予权重
+        unique_arr = np.unique(cls_array)
+        if len(unique_arr) == 4:
+            print(r0, r1, r2, r3)
+            result = r0
+        else:           
+            # 计算数组中每个数值出现的次数
+            counts = np.bincount(cls_array)
+            # 找到出现次数最多的数值
+            result = np.argmax(counts)
+        result_map[k] = str(result)
+    return result_map
+
+def sum_probabilty(result0, result1, result2, result3):
+    result_map = {}
+    for k in result0:
+        r0 = np.array(result0[k])
+        r1 = np.array(result1[k])
+        r2 = np.array(result2[k])
+        r3 = np.array(result3[k])
+        cls_array = r0 + r1 + r2 + r3
+        result = cls_array.argmax()     
+        result_map[k] = str(result)
+    return result_map
+
+def weight_probabilty(result0, result1, result2, result3):
+    weights = [
+        [0.722, 0.884, 0.870, 0.939, 0.775],
+        [0.889, 0.842, 0.872, 0.800, 0.757],
+        [0.652, 0.816, 0.824, 0.771, 0.676],
+        [0.714, 0.786, 0.684, 0.943, 0.75]
+    ]
+    result_map = {}
+    for k in result0:
+        r0 = np.array(result0[k]) * np.array(weights[0])
+        r1 = np.array(result1[k]) * np.array(weights[1])
+        r2 = np.array(result2[k]) * np.array(weights[2])
+        r3 = np.array(result3[k]) * np.array(weights[3])
+        cls_array = r0 + r1 + r2 + r3
+        result = cls_array.argmax()     
+        result_map[k] = str(result)
+    return result_map
+
+def merge_result():
+    with open(r"E:\Data\MLData\videoFeature\result_0.txt") as result0_f:
+        result0 = json.loads(result0_f.read())
+
+    with open(r"E:\Data\MLData\videoFeature\result_1.txt") as result1_f:
+        result1 = json.loads(result1_f.read())
+
+    with open(r"E:\Data\MLData\videoFeature\result_2.txt") as result2_f:
+        result2 = json.loads(result2_f.read())
+
+    with open(r"E:\Data\MLData\videoFeature\result_3.txt") as result3_f:
+        result3 = json.loads(result3_f.read())
+
+    result_map1 = max_frequency(result0, result1, result2, result3)
+    result_map2 = sum_probabilty(result0, result1, result2, result3)
+    result_map3 = weight_probabilty(result0, result1, result2, result3)
+    count = 0
+    for i, item in enumerate(result_map1):
+        if result_map1[item] != result_map2[item]:
+            print(item)
+            count = count + 1
+    print("not eq count :{}!!!!!".format(count))
+    
+    with open(os.path.join(workspace_root, "result.txt"), "w+") as result_f:
+        result_f.write(json.dumps(result_map3))
+    
+
+
 
 if __name__ == "__main__":
     # load_npy()
@@ -164,6 +245,7 @@ if __name__ == "__main__":
     # split_train_verfy(os.path.join(workspace_root, "train", "train_list.txt"))
     # create_test_data_files()
     # k_folder(r"E:\Data\MLData\videoFeature\train\train.csv")
-    split_train_part(r"D:\Data\MLData\videoFeature\train\train_list.txt")
+    # split_train_part(r"E:\Data\MLData\videoFeature\train\train_list.txt")
+    merge_result()
 
 
