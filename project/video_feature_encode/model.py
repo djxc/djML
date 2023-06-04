@@ -6,7 +6,7 @@ from torch.nn import functional as F
 import torchvision
 import timm
 
-from config import workspace_root
+from config import workspace_root, model_name, data_part
 
 ## 使用多层感知机，数据量太大不能全部放入内存 #
 class MLPModel(nn.Module):
@@ -301,6 +301,52 @@ class GoogLeNet(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+
+class DLineNet(nn.Module):
+    '''LeNet主要分为两部分
+        1、卷积加池化，卷积层减小了尺寸增加了通道数，获取空间特征
+        2、全连接层，将每个数据输出为一维数据，并逐渐减小个数
+        3、LeNet未使用丢弃法
+    '''
+    def __init__(self, in_channel, out_channel):
+        super(DLineNet, self).__init__()
+        self.conv2d_ksize = (1, 4)
+        self.pool_size = (1, 4)
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channel, 4, self.conv2d_ksize, stride=2), # in_channels, out_channels, kernel_size
+            nn.ReLU(),
+            nn.MaxPool1d(self.pool_size, 4), # kernel_size, stride
+
+            # nn.Conv1d(6, 16, self.conv2d_ksize),
+            # nn.ReLU(),
+            # nn.MaxPool2d(2, 2),
+
+            # nn.Conv2d(16, 32, self.conv2d_ksize),
+            # nn.ReLU(),
+            # nn.MaxPool2d(2, 2),
+
+            # nn.Conv2d(32, 64, self.conv2d_ksize),
+            # nn.ReLU(),
+            # nn.MaxPool2d(2, 2),           
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(10912 * 8, 512 * 8),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(512 * 8, 512),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(512, 128),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(128, out_channel)
+        )
+    def forward(self, img):
+        feature = self.conv(img)
+        feature = feature.view(img.shape[0], -1)
+        output = self.fc(feature)
+        return output
+
 def create_net(net_name: str, class_num: int, resume=""):
     """根据模型名称创建模型
     """
@@ -383,9 +429,14 @@ def create_net(net_name: str, class_num: int, resume=""):
     else:
         net = LeNet(1, class_num)
 
-    if resume and len(resume) > 0:
-        net.load_state_dict(torch.load(os.path.join(workspace_root, resume)))        # 加载训练数据权重
-        print("load model {}".format(resume))
+    if resume and resume > 0:
+        weight_name = "wight_{}_{}_{}.pth".format(model_name, data_part, resume)
+        weight_path = os.path.join(workspace_root, weight_name)
+        if os.path.exists(weight_path):
+            net.load_state_dict(torch.load(weight_path))        # 加载训练数据权重
+            print("load model {}".format(weight_name))
+        else:
+            print("weight {} not exist!!!".format(weight_path))
     return net
 
 if __name__ == "__main__":

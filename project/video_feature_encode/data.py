@@ -22,9 +22,9 @@ class VideoFeatureDataset(torch.utils.data.Dataset):
         if mode == "train":
             self.transform_norm = transforms.Compose([
                 transforms.ToTensor(),
-                # transforms.Normalize(mean=[0.5], std=[0.5]),
                 # transforms.RandomHorizontalFlip(),
                 transforms.Resize((IMG_HEIGH, IMG_WIDTH))
+                # transforms.Normalize(mean=[0.5], std=[0.5]),
             ])
         else:
             self.transform_norm = transforms.Compose([

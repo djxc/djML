@@ -16,7 +16,7 @@ from tqdm import tqdm
 import numpy as np
 import random
 
-from config import workspace_root, loss_type, lr, class_num, num_epochs, num_workers, model_name, data_part, weight_decay, resume_model
+from config import workspace_root, loss_type, lr, class_num, num_epochs, num_workers, model_name, data_part, weight_decay, test_model, resume_num
 from data import VideoFeatureDataset
 from model import MLPModel, LeNet, create_net
 from dloss import MultiClassFocalLossWithAlpha
@@ -46,13 +46,13 @@ def train(args):
     verify_video_feature_dataset = VideoFeatureDataset(verify_data_file, mode="verify")
     verify_data = DataLoader(verify_video_feature_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)  # 使用pytorch的数据加载函数加载数据
 
-    model = create_net(model_name, class_num, args.resume).to(device)
+    model = create_net(model_name, class_num, resume_num).to(device)
     criterion = create_loss(loss_type)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)      # 优化函数
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
     # predictNet(model, verify_data, log_file, batch_size)
     best_acc = 0
-    for epoch in range(num_epochs):           
+    for epoch in range(resume_num, num_epochs):           
         epoch_loss = 0
         startTime = time.time()
         current_lr = optimizer.state_dict()['param_groups'][0]['lr']
