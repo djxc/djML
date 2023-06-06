@@ -9,22 +9,15 @@ import os#与操作系统相关的库
 #设置随机种子
 import random
 
+from baseline3model import CNN
+
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.manual_seed(42)
 np.random.seed(42)
 random.seed(42)
-device='cuda' if torch.cuda.is_available() else"cpu"
 
-#获取训练集的标签
-train_list=""
-with open('train_list.txt','r') as f:
-    train_list+=f.read()
-y_train=re.findall(r'"(\d)"',train_list)
-def get_npy(path):
-    Files=os.listdir(path)
-    return Files
-trainFiles=get_npy('train_feature')
+device='cuda' if torch.cuda.is_available() else"cpu"
 
 def num_to_str(num):
     num=str(num)[::-1]
@@ -32,14 +25,24 @@ def num_to_str(num):
         num+="0"
     return num[::-1]
 
+def get_npy(path):
+    Files=os.listdir(path)
+    return Files
+
 def train():
+    #获取训练集的标签
+    train_list=""
+    with open('train_list.txt','r') as f:
+        train_list+=f.read()
+    y_train=re.findall(r'"(\d)"',train_list)
+    trainFiles=get_npy('train_feature')
     netC=CNN()
     train_accs=[]#存储训练集的准确率
     test_accs=[]#存储测试集的准确率
     #训练周期为40次
     num_epochs=40
     #优化器
-    optimizer=optim.Adam(netC.parameters(), lr=0.0001, betas=(0.5, 0.999))
+    optimizer = optim.Adam(netC.parameters(),lr=0.0001,betas=(0.5,0.999))
     #损失函数
     criterion=nn.CrossEntropyLoss()
     netC=netC.to(device)
@@ -79,29 +82,35 @@ def train():
             #将梯度清空
             optimizer.zero_grad()
         print(f"epoch:{epoch},error:{error}")
-
-        netC.eval()
-        with torch.no_grad():
-            pred_y=[]
-            for index in range(len(y_train)):
-                #这时候是250*2048*1*1,需要先转成1*1*250*2048,然后转成1*250*2048
-                array=np.load(f'data/视觉特征编码/train_feature/{num_to_str(index)}.npy')
-                array=np.transpose(array,(2,3,0,1))[0]#.reshape(-1,125,64,64)
-                sample=torch.Tensor(array).to(device)
-                output=netC(sample).to(device)
-                output=output.detach().cpu().numpy()
-                pred=np.argmax(output)
-                pred_y.append(pred)
-        train_acc=0
-        for i in range(800):
-            train_acc+=(pred_y[i]==int(y_train[i]))/800
-        print("训练集上的准确率:",train_acc)
-        test_acc=0
-        for i in range(800,len(y_train)):
-            test_acc+=(pred_y[i]==int(y_train[i]))/100
-        print("测试集上的准确率:",test_acc)
+        train_acc, verify_acc = verify(netC, y_train)
         train_accs.append(train_acc)
-        test_accs.append(test_acc)
+        test_accs.append(verify_acc)
+
+def verify(netC, y_train):
+    netC.eval()
+    with torch.no_grad():
+        pred_y=[]
+        for index in range(len(y_train)):
+            #这时候是250*2048*1*1,需要先转成1*1*250*2048,然后转成1*250*2048
+            array=np.load(f'data/视觉特征编码/train_feature/{num_to_str(index)}.npy')
+            array=np.transpose(array,(2,3,0,1))[0]#.reshape(-1,125,64,64)
+            sample=torch.Tensor(array).to(device)
+            output=netC(sample).to(device)
+            output=output.detach().cpu().numpy()
+            pred=np.argmax(output)
+            pred_y.append(pred)
+    train_acc=0
+    for i in range(800):
+        train_acc+=(pred_y[i]==int(y_train[i]))/800
+    print("训练集上的准确率:",train_acc)
+    verify_acc=0
+    for i in range(800,len(y_train)):
+        verify_acc += (pred_y[i]==int(y_train[i]))/100
+    print("测试集上的准确率:",verify_acc)
+    return train_acc, verify_acc
+
+def test():
+    pass
 
 if __name__ == "__main__":
     train()
