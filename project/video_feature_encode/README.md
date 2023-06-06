@@ -98,6 +98,7 @@ cls 4 acc is 0.560, total: 75, error: 33
 
 train acc: 0.7969, loss: 0.0533; use time:16.85s
 
+AlexNet: loss为focal loss
 cls 0 acc is 0.722, total: 18, error: 5, {"2": 2, "1": 2, "4": 1}
 cls 1 acc is 0.884, total: 43, error: 5, {"3": 3, "4": 2}
 cls 2 acc is 0.870, total: 46, error: 6, {"4": 5, "3": 1}
@@ -126,6 +127,43 @@ cls 2 acc is 0.684, total: 38, error: 12, error_info: {"0": 2, "4": 6, "3": 1, "
 cls 3 acc is 0.943, total: 35, error: 2, error_info: {"1": 2}
 cls 4 acc is 0.750, total: 44, error: 11, error_info: {"0": 4, "2": 4, "1": 3}
 从头训练数据3，60轮，验证集精度0.7292，测试集精度
+
+
+MLP: 数据1，loss为交叉熵损失函数
+cls 0 acc is 0.750, total: 24, error: 6, error_info: {"2": 2, "1": 1, "4": 1, "3": 2}
+cls 1 acc is 0.878, total: 49, error: 6, error_info: {"3": 5, "4": 1}
+cls 2 acc is 0.886, total: 35, error: 4, error_info: {"4": 2, "1": 2}
+cls 3 acc is 0.868, total: 38, error: 5, error_info: {"4": 4, "0": 1}
+cls 4 acc is 0.765, total: 34, error: 8, error_info: {"2": 4, "1": 2, "3": 1, "0": 1}
+accuracy = 0.8388
+
+cls 0 acc is 0.762, total: 21, error: 5, error_info: {"4": 3, "3": 1, "2": 1}
+cls 1 acc is 0.727, total: 33, error: 9, error_info: {"3": 4, "2": 4, "0": 1}
+cls 2 acc is 0.872, total: 39, error: 5, error_info: {"4": 4, "1": 1}
+cls 3 acc is 0.809, total: 47, error: 9, error_info: {"1": 4, "0": 1, "4": 4}
+cls 4 acc is 0.575, total: 40, error: 17, error_info: {"3": 5, "0": 2, "2": 9, "1": 1}
+accuracy = 0.75
+
+cls 0 acc is 0.833, total: 12, error: 2, error_info: {"4": 1, "1": 1}
+cls 1 acc is 0.974, total: 39, error: 1, error_info: {"4": 1}
+cls 2 acc is 0.756, total: 45, error: 11, error_info: {"1": 2, "4": 8, "0": 1}
+cls 3 acc is 0.605, total: 38, error: 15, error_info: {"1": 7, "0": 4, "2": 2, "4": 2}
+cls 4 acc is 0.717, total: 46, error: 13, error_info: {"2": 6, "1": 5, "0": 2}
+accuracy = 0.7666666666666667
+
+cls 0 acc is 0.538, total: 26, error: 12, error_info: {"4": 8, "2": 2, "3": 2}
+cls 1 acc is 0.900, total: 40, error: 4, error_info: {"3": 2, "2": 1, "4": 1}
+cls 2 acc is 0.821, total: 39, error: 7, error_info: {"4": 4, "3": 3}
+cls 3 acc is 0.838, total: 37, error: 6, error_info: {"4": 1, "1": 3, "2": 1, "0": 1}
+cls 4 acc is 0.816, total: 38, error: 7, error_info: {"3": 2, "1": 2, "2": 2, "0": 1}
+accuracy = 0.8
+
+cls 0 acc is 0.882, total: 17, error: 2, error_info: {"4": 1, "1": 1}
+cls 1 acc is 0.897, total: 39, error: 4, error_info: {"3": 2, "0": 1, "4": 1}
+cls 2 acc is 0.833, total: 42, error: 7, error_info: {"3": 1, "4": 5, "0": 1}
+cls 3 acc is 0.825, total: 40, error: 7, error_info: {"4": 2, "1": 5}
+cls 4 acc is 0.643, total: 42, error: 15, error_info: {"2": 7, "3": 4, "0": 2, "1": 2}
+accuracy = 0.805
 
 [
   [0.722, 0.884, 0.870, 0.939, 0.775],

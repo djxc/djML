@@ -55,7 +55,7 @@ def train(args):
 
 
     optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = args.lr)   
-    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0.0001, last_epoch=-1)                        
+    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0.00005, last_epoch=-1)                        
                     
 
     # Start Traning process--------------------------------------
@@ -225,22 +225,14 @@ def test1(args):
     print(result)
     with open(os.path.join(result_root, 'result.txt'), 'w') as f:
         f.write(json.dumps(result))
-    
-    # temp_idx = 0
-    # for key, _ in example.items():
-    #     example[key] = predicted_result[temp_idx]
-    #     temp_idx+=1
-
-    # with open(f'{result_root}/example.txt', 'w', encoding='utf-8') as f:
-    #     json.dump(example, f)
 
 
 if __name__  == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='first_stage') 
-    parser.add_argument('--train_label_path', type=str, required=False, default='D:\\Data\\MLData\\videoFeature\\train\\train_1.csv',
+    parser.add_argument('--train_label_path', type=str, required=False, default='D:\\Data\\MLData\\videoFeature\\train\\train_4.csv',
                             help='Path to the label file ;')
-    parser.add_argument('--varify_label_path', type=str, required=False, default='D:\\Data\\MLData\\videoFeature\\train\\verify_1.csv',
+    parser.add_argument('--varify_label_path', type=str, required=False, default='D:\\Data\\MLData\\videoFeature\\train\\verify_4.csv',
                             help='Path to the label file ;')
     parser.add_argument('--to_be_predicted', type=str, required=False, default='D:\\Data\\MLData\\videoFeature\\test_A\\test.csv',
                             help='Path to the numpy data to_be_predicted ;')
