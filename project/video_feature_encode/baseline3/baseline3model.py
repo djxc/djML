@@ -60,12 +60,7 @@ class PositionalEncoding(nn.Module):
         某些位置对应的编码值被随机地丢弃,减少过拟合.
         """
         return self.dropout(x) 
-<<<<<<< HEAD
-
-
-=======
     
->>>>>>> 68928061148e8846cc15a84045f8f23c78de639d
 #多头注意力机制
 class MultiHeadSelfAttention(nn.Module):
     #定义初始化函数,dim_in是
@@ -83,10 +78,6 @@ class MultiHeadSelfAttention(nn.Module):
         self.scale=1/math.sqrt(d_model//num_heads)
         #最后的线性层
         self.fc=nn.Linear(d_model,d_model)
-<<<<<<< HEAD
-
-=======
->>>>>>> 68928061148e8846cc15a84045f8f23c78de639d
     def forward(self,x):
         batch,n,dim_in=x.shape
         assert dim_in==self.dim_in
@@ -101,11 +92,7 @@ class MultiHeadSelfAttention(nn.Module):
         att=att.transpose(1,2).reshape(batch,n,self.d_model)
         output=self.fc(att)
         return output   
-<<<<<<< HEAD
-        
-=======
     
->>>>>>> 68928061148e8846cc15a84045f8f23c78de639d
 class CNN(nn.Module):
     def __init__(self):
         super(CNN,self).__init__()
@@ -145,10 +132,6 @@ class CNN(nn.Module):
         self.Linear1=nn.Linear(1024*6*6,128)
         self.relu1=nn.ReLU()
         self.Linear2=nn.Linear(128,5)
-<<<<<<< HEAD
-        
-=======
->>>>>>> 68928061148e8846cc15a84045f8f23c78de639d
     def forward(self,input): 
         output=input
         output=self.PositionalEncoding(output)#先给数据加上位置信息
@@ -162,8 +145,4 @@ class CNN(nn.Module):
         output=self.relu1(output)
         output=self.Linear2(output)
         return F.softmax(output,dim=1)
-<<<<<<< HEAD
-
-=======
     
->>>>>>> 68928061148e8846cc15a84045f8f23c78de639d
