@@ -35,15 +35,18 @@ class VAE(nn.Module):
                 )
 
       def reparameterize(self, mu, logvar):
-            eps = Variable(torch.randn(mu.size(0), mu.size(1))).to(device)
+            """重参数
+                  1、均值与方差有encoder计算处理，通过重参数对encoder进行反向优化
+            """
+            eps = torch.randn(mu.size(0), mu.size(1)).to(device)  # 随机生成数据，
             z = mu + eps * torch.exp(logvar/2)            
             
             return z
       
       def forward(self, x):
             out1, out2 = self.encoder(x), self.encoder(x)  # batch_s, 128, 7, 7
-            mu = self.fc11(out1.view(out1.size(0),-1))     # batch_s, latent
-            logvar = self.fc12(out2.view(out2.size(0),-1)) # batch_s, latent
+            mu = self.fc11(out1.view(out1.size(0),-1))     # batch_s, latent  均值
+            logvar = self.fc12(out2.view(out2.size(0),-1)) # batch_s, latent  方差
             z = self.reparameterize(mu, logvar)      # batch_s, latent      
             out3 = self.fc2(z).view(z.size(0), 128, 7, 7)    # batch_s, 128, 7, 7
             

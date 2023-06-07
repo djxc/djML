@@ -19,6 +19,10 @@ from encoder_data import get_mnist_data
 
 
 def loss_func(recon_x, x, mu, logvar):
+    """loss函数有两部分组成
+        1、二值交叉熵为decoder结果与原始数据之间的相似程度
+        2、
+    """
     BCE = F.binary_cross_entropy(recon_x, x,  size_average=False)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())      
     return BCE+KLD
@@ -34,18 +38,18 @@ def train():
         vae.train()
         total_loss = 0
         for i, (data, _) in enumerate(train_loader, 0):
-                data = Variable(data).to(device)    # variable 变量可以进行反向传播
+                data = data.to(device)      # data为batch_size * 1 * 28 * 28
                 optimizer.zero_grad()
-                recon_x, mu, logvar = vae.forward(data)
+                recon_x, mu, logvar = vae.forward(data)     # recon_x为解码结果与data相同维度，mu为第一个encode结果，logvar为第二个encode结果，二者维度均为batch_size * 32，计算方式完全相同，但loss函数不同
                 loss = loss_func(recon_x, data, mu, logvar)
                 loss.backward()
                 total_loss += loss.data.item()
                 optimizer.step()
                 
                 if i % log_interval == 0:
-                    sample = Variable(torch.randn(64, LATENT_CODE_NUM)).to(device)  # torch.randn正态分布随机取数
-                    sample = vae.decoder(vae.fc2(sample).view(64, 128, 7, 7)).cpu()
-                    save_image(sample.data.view(64, 1, 28, 28), '{}\sample_{}.png'.format(workspace_root, epoch))
+                    sample = torch.randn(BATCH_SIZE, LATENT_CODE_NUM).to(device)  # torch.randn正态分布随机取数
+                    sample = vae.decoder(vae.fc2(sample).view(BATCH_SIZE, 128, 7, 7)).cpu()
+                    save_image(sample.data.view(BATCH_SIZE, 1, 28, 28), '{}\sample_{}_{}.png'.format(workspace_root, epoch, i))
                     print('Train Epoch:{} -- [{}/{} ({:.0f}%)] -- Loss:{:.6f}'.format(
                                 epoch, i*len(data), len(train_loader.dataset), 
                                 100.*i/len(train_loader), loss.data.item()/len(data)))
