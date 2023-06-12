@@ -16,11 +16,11 @@ import argparse
 import time
 
 from baseline1Utils import init_logger, str2model, str2loss, set_gpu, set_seed, IOStream
-from baselineData import VideoDataset, VideoDataset1, random_remove_frame, split_frame
+from baselineData import VideoDataset1, random_remove_frame, split_frame
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 weight_decay = 0.0
-
+workspace = r"D:\\Data\\MLData\\videoFeature"
 def train(args):
     args.device = device
     logger = init_logger(args.log_dir, args)
@@ -55,7 +55,7 @@ def train(args):
             raise RuntimeError(f'{resume_model_path} does not exist, loading failed')
 
 
-    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = args.lr)   
+    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = args.lr, weight_decay=args.weight_decay)   
     scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0.00001, last_epoch=-1)                        
                     
 
@@ -98,16 +98,17 @@ def train(args):
             best_epoch = epoch
             save_model(model, epoch, best_acc)
             logger.cprint('******************Model Saved******************')
-
+        if epoch % 20 == 0:
+            save_model(model, epoch, best_acc, "model_{}.pth".format(epoch))
         logger.cprint(f'best_epoch = {best_epoch}, best_acc = {best_acc}')
 
-def save_model(model, epoch, acc):
+def save_model(model, epoch, acc, model_name='best_model.pth'):
         save_dict = {
             'model': deepcopy(model.state_dict()),
             'best_epoch': epoch,
             'best_acc': acc
         }
-        torch.save(save_dict, os.path.join(args.log_dir, 'best_model.pth'))
+        torch.save(save_dict, os.path.join(args.log_dir, model_name))
 
 def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logger, loss_fn):
     model.eval()
@@ -234,11 +235,11 @@ def test1(args):
 if __name__  == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='first_stage') 
-    parser.add_argument('--train_label_path', type=str, required=False, default='E:\\Data\\MLData\\videoFeature\\train\\train_4.csv',
+    parser.add_argument('--train_label_path', type=str, required=False, default='{}\\train\\train_4.csv'.format(workspace),
                             help='Path to the label file ;')
-    parser.add_argument('--varify_label_path', type=str, required=False, default='E:\\Data\\MLData\\videoFeature\\train\\verify_4.csv',
+    parser.add_argument('--varify_label_path', type=str, required=False, default='{}\\train\\verify_4.csv'.format(workspace),
                             help='Path to the label file ;')
-    parser.add_argument('--to_be_predicted', type=str, required=False, default='E:\\Data\\MLData\\videoFeature\\test_A\\test.csv',
+    parser.add_argument('--to_be_predicted', type=str, required=False, default='{}\\test_A\\test.csv'.format(workspace),
                             help='Path to the numpy data to_be_predicted ;')
 
 
@@ -262,12 +263,12 @@ if __name__  == "__main__":
     parser.add_argument('--SGD', action='store_true', help='Flag to use SGD optimizer')
     parser.add_argument('--weight-decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
 
-    parser.add_argument('--epochs', type=int, default=200, help='Number of epochs.')
+    parser.add_argument('--epochs', type=int, default=500, help='Number of epochs.')
     parser.add_argument('--seed', type=int, default=2023, help='Random seed.')
     parser.add_argument('--gpu', type=str, default='2', help='gpu id')
 
     # model pth
-    parser.add_argument('--save_path', type=str, default='E:\\Data\\MLData\\videoFeature\\video_results', help='Directory to the save log and checkpoints')
+    parser.add_argument('--save_path', type=str, default='{}\\video_results'.format(workspace), help='Directory to the save log and checkpoints')
     parser.add_argument('--extra_info', type=str, default='', help='Extra information in save_path')
 
     # model 
@@ -276,8 +277,10 @@ if __name__  == "__main__":
     parser.add_argument('--loss', type=str, default='Cross_Entropy',help='Name of loss to use')
 
     parser.add_argument('--num_classes', type=int, default=5, help='The number of class')
-    parser.add_argument('--n_input', type=int, default=256, help='The number of the input feature')
+    parser.add_argument('--n_input', type=int, default=250, help='The number of the input feature')
     parser.add_argument('--d_input', type=int, default=2048, help='The dimension of the input feature')
+    # checkpoint_path
+    parser.add_argument('--checkpoint_path', type=int, default=2048, help='The dimension of the input feature')
 
 
     # args = parser.parse_args()
