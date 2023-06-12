@@ -72,9 +72,9 @@ def str2loss(args):
 
 def str2model(args):
     if args.model == "MLP":
-        # return MLP(args)
+        return MLP(args)
+    if args.model == "DJMLP":
         return MLPDJ(args)
-   
     else:
         raise NotImplementedError("Model \"" + args.model + "\" not yet implemented")
     

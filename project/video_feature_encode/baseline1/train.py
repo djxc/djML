@@ -19,6 +19,7 @@ from baseline1Utils import init_logger, str2model, str2loss, set_gpu, set_seed, 
 from baselineData import VideoDataset, VideoDataset1, random_remove_frame, split_frame
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+weight_decay = 0.0
 
 def train(args):
     args.device = device
@@ -54,7 +55,8 @@ def train(args):
             raise RuntimeError(f'{resume_model_path} does not exist, loading failed')
 
 
-    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = args.lr)   
+    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = args.lr, weight_decay=weight_decay)   
+    # optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=weight_decay)      # 优化函数
     scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0.00005, last_epoch=-1)                        
                     
 
@@ -267,12 +269,12 @@ if __name__  == "__main__":
     parser.add_argument('--extra_info', type=str, default='', help='Extra information in save_path')
 
     # model 
-    parser.add_argument('--model', type=str, default='MLP',help='Name of model to use')
+    parser.add_argument('--model', type=str, default='DJMLP',help='Name of model to use')
     # loss
     parser.add_argument('--loss', type=str, default='Cross_Entropy',help='Name of loss to use')
 
     parser.add_argument('--num_classes', type=int, default=5, help='The number of class')
-    parser.add_argument('--n_input', type=int, default=250, help='The number of the input feature')
+    parser.add_argument('--n_input', type=int, default=256, help='The number of the input feature')
     parser.add_argument('--d_input', type=int, default=2048, help='The dimension of the input feature')
 
 

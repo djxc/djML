@@ -27,11 +27,11 @@ class PositionalEncoding(nn.Module):
         #先初始化pe,max_len就是翻译的词向量的长度,d_model是维度,初始化为0,并移动到GPU上训练
         pe=torch.zeros(max_len,d_model).to(device)
         """
-        torch.arange(0,5)->[0,1,2,3,4]
-        然后再在指定位置上加一个维度[[0,1,2,3,4]]
-        position:就是每个词的位置信息
-        $PE_{(pos,2i)}=sin(pos/10000^{2i/d_{model}})$
-        $PE_{(pos,2i+1)}=cos(pos/10000^{2i/d_{model}})$
+            torch.arange(0,5)->[0,1,2,3,4]
+            然后再在指定位置上加一个维度[[0,1,2,3,4]]
+            position:就是每个词的位置信息
+            $PE_{(pos,2i)}=sin(pos/10000^{2i/d_{model}})$
+            $PE_{(pos,2i+1)}=cos(pos/10000^{2i/d_{model}})$
         """
         position = torch.arange(0, max_len).unsqueeze(1)
         #10000^{-2i/d_model}=e^{-2i*ln(10000)/d_model}
@@ -78,6 +78,7 @@ class MultiHeadSelfAttention(nn.Module):
         self.scale=1/math.sqrt(d_model//num_heads)
         #最后的线性层
         self.fc=nn.Linear(d_model,d_model)
+        
     def forward(self,x):
         batch,n,dim_in=x.shape
         assert dim_in==self.dim_in
@@ -132,6 +133,7 @@ class CNN(nn.Module):
         self.Linear1=nn.Linear(1024*6*6,128)
         self.relu1=nn.ReLU()
         self.Linear2=nn.Linear(128,5)
+
     def forward(self,input): 
         output=input
         output=self.PositionalEncoding(output)#先给数据加上位置信息

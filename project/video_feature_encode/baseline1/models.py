@@ -58,53 +58,65 @@ class MLPDJ(nn.Module):
             nn.Linear(self.d_input, self.d_input//2),       # linear可以输入二维数据，并不仅能输入一维数据，相应的weight应该也是二维的。
             nn.BatchNorm1d(self.n_input),
             nn.GELU(),
+            # nn.MaxPool1d(2)
         )
         self.layer2 = torch.nn.Sequential(
             nn.Linear(self.d_input//2, self.d_input//4),
             nn.BatchNorm1d(self.n_input),
             nn.GELU(),
+            # nn.MaxPool1d(2)
         )
         self.layer3 = torch.nn.Sequential(
             nn.Linear(self.d_input//4, self.d_input//8),
             nn.BatchNorm1d(self.n_input),
             nn.GELU(),
+            # nn.MaxPool1d(2)
         )
-
-        self.frame_width = self.d_input//8
 
         self.layer4 = torch.nn.Sequential(
-            nn.Linear(self.n_input, self.n_input//2),
-            nn.BatchNorm1d(self.frame_width),
-            nn.GELU()
+            nn.Linear(self.d_input//8, self.d_input//16),
+            nn.BatchNorm1d(self.n_input),
+            nn.GELU(),
+            # nn.MaxPool1d(2)
         )
 
+        self.frame_width = self.d_input//16         # 32
+
         self.layer5 = torch.nn.Sequential(
-            nn.Linear(self.n_input//2, self.n_input//4),
+            nn.Linear(self.n_input, self.n_input//2),
             nn.BatchNorm1d(self.frame_width),
-            nn.GELU()
+            nn.GELU(),
+            nn.MaxPool1d(2)
         )
 
         self.layer6 = torch.nn.Sequential(
-            nn.Linear(self.n_input//4, 16),
+            nn.Linear(self.n_input//4, self.n_input//8),
             nn.BatchNorm1d(self.frame_width),
-            nn.GELU()
+            nn.GELU(),
+            nn.MaxPool1d(2)
         )
+
+        # self.layer6 = torch.nn.Sequential(
+        #     nn.Linear(self.n_input//16, 16),
+        #     nn.BatchNorm1d(self.frame_width),
+        #     nn.GELU(),
+        #     nn.MaxPool1d(2)
+        # )
        
-        self.classifier1 = nn.Linear(self.d_input//8, self.output_size)
+        self.classifier1 = nn.Linear(self.n_input//16, self.output_size)
 
 
     def forward(self, x):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-
+        x = self.layer4(x)
         # batch维下的二维矩阵转置
         x = torch.permute(x, (0,2,1))
-        x = self.layer4(x)
         x = self.layer5(x)
-        x = self.layer6(x)  # batch_size * 256 * 64
-
-        x = x.mean(dim=2) # batch_size * 256
+        x = self.layer6(x)
+        # x = self.layer6(x)  # batch_size * 256 * 64
+        x = x.mean(dim=1)
         logit = self.classifier1(x).squeeze(-1)
         return logit
     

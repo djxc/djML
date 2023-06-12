@@ -35,7 +35,8 @@ class VideoDataset(Dataset):
 
 
     def __getitem__(self, index):
-        data = torch.from_numpy(np.load(os.path.join(self.data_path, self.file_list[index]))).squeeze()
+        data_np = np.load(os.path.join(self.data_path, self.file_list[index]))
+        data = torch.from_numpy(data_np).squeeze()
         if self.labels is not None:
             label = int(self.labels[self.file_list[index]])
         else:
@@ -66,7 +67,9 @@ class VideoDataset1(Dataset):
         else:
             image_path = self.imageDatas[idx].replace(",\n", "")
             label = image_path
-        data = torch.from_numpy(np.load(image_path)).squeeze()  # 250*2048
+        data_x = torch.from_numpy(np.load(image_path)).squeeze()  # 250*2048
+        data = torch.zeros(size=(256, 2048), dtype=torch.float32)
+        data[:250, :] = data_x
         if self.transform:
             # 噪音为0.1对结果影响不大
             nosize_factor = random.randint(0, 5) * 0.1
