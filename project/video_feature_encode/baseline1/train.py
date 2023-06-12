@@ -55,9 +55,8 @@ def train(args):
             raise RuntimeError(f'{resume_model_path} does not exist, loading failed')
 
 
-    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = args.lr, weight_decay=weight_decay)   
-    # optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=weight_decay)      # 优化函数
-    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0.00005, last_epoch=-1)                        
+    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr = args.lr)   
+    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0.00001, last_epoch=-1)                        
                     
 
     # Start Traning process--------------------------------------
@@ -70,12 +69,15 @@ def train(args):
         current_lr = optimizer.state_dict()['param_groups'][0]['lr']
         logger.cprint(f'----------Start Training Epoch-[{epoch}/{args.epochs}/{current_lr:.6f}]------------')
         ttl_rec = 0.
+        total_correct = 0
         for i, (inputs, targets) in enumerate(train_dataloader):
             # inputs = random_remove_frame(inputs)
             inputs = inputs.to(device)
             targets = targets.to(device)
             optimizer.zero_grad()
             logits = model(inputs) 
+            predicted = torch.argmax(logits, dim=-1)
+            total_correct += (predicted == targets).sum().item()
             loss = loss_fn(logits, targets)
 
             loss.backward()
@@ -83,16 +85,13 @@ def train(args):
 
             batch_rec = loss
             ttl_rec += batch_rec
-
-            if (i + 1) % 100 == 0:
-                logger.cprint(f'Training Batch-[{i + 1}/{len(train_dataloader)}]:{batch_rec:.5f}')
-
         epoch_rec = ttl_rec / len(train_dataloader)
-        logging = f'Training results for epoch -- {epoch}: Epoch_Rec:{epoch_rec}'
+        epoch_acc = total_correct / (len(train_dataloader) * args.batch_size)
+        logging = f'Training results for epoch -- {epoch}: Epoch_Rec:{epoch_rec}; Epoch_acc: {epoch_acc}'
         logger.cprint(logging)
         scheduler.step()
        
-        accuracy = verify(model, epoch, val_dataloader, logger)
+        accuracy = verify(model, epoch, val_dataloader, logger, loss_fn)
         logger.cprint(f'accuracy = {accuracy}')  
         if accuracy > best_acc:
             best_acc = accuracy
@@ -110,7 +109,7 @@ def save_model(model, epoch, acc):
         }
         torch.save(save_dict, os.path.join(args.log_dir, 'best_model.pth'))
 
-def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logger):
+def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logger, loss_fn):
     model.eval()
     total_correct = 0
     total_samples = 0
@@ -122,11 +121,13 @@ def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logge
         "4": {"total": 0, "error": 0, "error_info": {}}
         }
     with torch.no_grad():
+        total_loss = 0
         for inputs, targets in tqdm(val_dataloader, desc='Epoch:{:d} val'.format(epoch)):
             inputs = inputs.to(device)
-            # inputs = random_remove_frame(inputs)
             targets = targets.to(device)
             logits = model(inputs)
+            loss = loss_fn(logits, targets)
+            total_loss = total_loss + loss
             predicted = torch.argmax(logits, dim=-1)
             total_correct += (predicted == targets).sum().item()
             total_samples += inputs.size(0)
@@ -141,6 +142,7 @@ def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logge
                             verify_result[y]["error_info"][y_pre] = 1
                         else:
                             verify_result[y]["error_info"][y_pre] = verify_result[y]["error_info"][y_pre] + 1
+        loss_rec = total_loss / len(val_dataloader)
     for cls in verify_result:
             total_num = verify_result[cls]["total"]
             true_num = total_num - verify_result[cls]["error"]
@@ -232,11 +234,11 @@ def test1(args):
 if __name__  == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='first_stage') 
-    parser.add_argument('--train_label_path', type=str, required=False, default='D:\\Data\\MLData\\videoFeature\\train\\train_4.csv',
+    parser.add_argument('--train_label_path', type=str, required=False, default='E:\\Data\\MLData\\videoFeature\\train\\train_4.csv',
                             help='Path to the label file ;')
-    parser.add_argument('--varify_label_path', type=str, required=False, default='D:\\Data\\MLData\\videoFeature\\train\\verify_4.csv',
+    parser.add_argument('--varify_label_path', type=str, required=False, default='E:\\Data\\MLData\\videoFeature\\train\\verify_4.csv',
                             help='Path to the label file ;')
-    parser.add_argument('--to_be_predicted', type=str, required=False, default='D:\\Data\\MLData\\videoFeature\\test_A\\test.csv',
+    parser.add_argument('--to_be_predicted', type=str, required=False, default='E:\\Data\\MLData\\videoFeature\\test_A\\test.csv',
                             help='Path to the numpy data to_be_predicted ;')
 
 
@@ -260,12 +262,12 @@ if __name__  == "__main__":
     parser.add_argument('--SGD', action='store_true', help='Flag to use SGD optimizer')
     parser.add_argument('--weight-decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
 
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs.')
+    parser.add_argument('--epochs', type=int, default=200, help='Number of epochs.')
     parser.add_argument('--seed', type=int, default=2023, help='Random seed.')
     parser.add_argument('--gpu', type=str, default='2', help='gpu id')
 
     # model pth
-    parser.add_argument('--save_path', type=str, default='D:\\Data\\MLData\\videoFeature\\video_results', help='Directory to the save log and checkpoints')
+    parser.add_argument('--save_path', type=str, default='E:\\Data\\MLData\\videoFeature\\video_results', help='Directory to the save log and checkpoints')
     parser.add_argument('--extra_info', type=str, default='', help='Extra information in save_path')
 
     # model 
