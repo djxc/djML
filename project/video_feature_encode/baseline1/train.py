@@ -90,7 +90,7 @@ def train(args):
         logger.cprint(logging)
         scheduler.step()
        
-        accuracy = verify(model, epoch, val_dataloader, logger)
+        accuracy = verify(model, epoch, val_dataloader, logger, loss_fn)
         logger.cprint(f'accuracy = {accuracy}')  
         if accuracy > best_acc:
             best_acc = accuracy
@@ -108,7 +108,7 @@ def save_model(model, epoch, acc):
         }
         torch.save(save_dict, os.path.join(args.log_dir, 'best_model.pth'))
 
-def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logger):
+def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logger, loss_fn):
     model.eval()
     total_correct = 0
     total_samples = 0
@@ -120,10 +120,13 @@ def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logge
         "4": {"total": 0, "error": 0, "error_info": {}}
         }
     with torch.no_grad():
+        total_loss = 0
         for inputs, targets in tqdm(val_dataloader, desc='Epoch:{:d} val'.format(epoch)):
             inputs = inputs.to(device)
             targets = targets.to(device)
             logits = model(inputs)
+            loss = loss_fn(logits, targets)
+            total_loss = total_loss + loss
             predicted = torch.argmax(logits, dim=-1)
             total_correct += (predicted == targets).sum().item()
             total_samples += inputs.size(0)
@@ -138,6 +141,7 @@ def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logge
                             verify_result[y]["error_info"][y_pre] = 1
                         else:
                             verify_result[y]["error_info"][y_pre] = verify_result[y]["error_info"][y_pre] + 1
+        loss_rec = total_loss / len(val_dataloader)
     for cls in verify_result:
             total_num = verify_result[cls]["total"]
             true_num = total_num - verify_result[cls]["error"]
