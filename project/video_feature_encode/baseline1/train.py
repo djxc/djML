@@ -3,6 +3,7 @@ import os.path
 import json
 from pathlib import Path
 import numpy as np
+import random
 
 import torch
 import torch.nn as nn
@@ -16,11 +17,10 @@ import argparse
 import time
 
 from baseline1Utils import init_logger, str2model, str2loss, set_gpu, set_seed, IOStream
-from baselineData import VideoDataset1, random_remove_frame, split_frame
+from baselineData import VideoDataset1, split_frame
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-weight_decay = 0.0
-workspace = r"D:\\Data\\MLData\\videoFeature"
+workspace = r"E:\\Data\\MLData\\videoFeature"
 def train(args):
     args.device = device
     logger = init_logger(args.log_dir, args)
@@ -49,7 +49,7 @@ def train(args):
                     param.requires_grad = False
                 if 'classifer' in name:
                     param.requires_grad = False
-            print(model.module.classifer[0].weight)
+            # print(model.module.classifer[0].weight)
 
         else:
             raise RuntimeError(f'{resume_model_path} does not exist, loading failed')
@@ -63,7 +63,6 @@ def train(args):
     model.train()
     best_epoch = 0
     best_acc = 0. 
-    sep = 1e-6
 
     for epoch in range(start_epoch, args.epochs + 1):
         current_lr = optimizer.state_dict()['param_groups'][0]['lr']
@@ -71,10 +70,19 @@ def train(args):
         ttl_rec = 0.
         total_correct = 0
         for i, (inputs, targets) in enumerate(train_dataloader):
-            # inputs = random_remove_frame(inputs)
             inputs = inputs.to(device)
             targets = targets.to(device)
             optimizer.zero_grad()
+            if random.random() > 0.5:
+                criterion = mixup_criterion
+                inputs, labels, y_b, lam = data_augmentation(inputs, labels)
+                outputs = model(inputs)               
+                loss = criterion(outputs, labels, y_b, lam)             
+            else:
+                criterion = str2loss(args)
+                outputs = model(inputs)                            
+                loss = criterion(outputs, labels)   
+
             logits = model(inputs) 
             predicted = torch.argmax(logits, dim=-1)
             total_correct += (predicted == targets).sum().item()
@@ -91,8 +99,8 @@ def train(args):
         logger.cprint(logging)
         scheduler.step()
        
-        accuracy = verify(model, epoch, val_dataloader, logger, loss_fn)
-        logger.cprint(f'accuracy = {accuracy}')  
+        accuracy, loss_rec = verify(model, epoch, val_dataloader, logger, loss_fn)
+        logger.cprint(f'accuracy = {accuracy}; loss_rec: {loss_rec}')  
         if accuracy > best_acc:
             best_acc = accuracy
             best_epoch = epoch
@@ -101,6 +109,35 @@ def train(args):
         if epoch % 20 == 0:
             save_model(model, epoch, best_acc, "model_{}.pth".format(epoch))
         logger.cprint(f'best_epoch = {best_epoch}, best_acc = {best_acc}')
+
+def mixup_criterion(pred, y_a, y_b, lam):
+    """损失函数"""
+    c = str2loss(args)
+    return lam * c(pred, y_a) + (1 - lam) * c(pred, y_b)
+
+def data_augmentation(X, Y):
+    # 数据增强       
+    X, Y, y_b, lam = mixup_data(X, Y)
+    X, Y, y_b = map(torch.autograd.Variable, (X, Y, y_b))
+    return X, Y, y_b, lam
+    
+# 图像增强
+def mixup_data(x, y, alpha=1.0, use_cuda=True):
+    """ Mixup 数据增强 -> 随机叠加两张图像 """
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)  # β分布
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size)
+    if use_cuda:
+        index = torch.randperm(batch_size).to(device)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    
+    return mixed_x, y_a, y_b, lam   
 
 def save_model(model, epoch, acc, model_name='best_model.pth'):
         save_dict = {
@@ -156,7 +193,7 @@ def verify(model: nn.DataParallel, epoch: int, val_dataloader: DataLoader, logge
     # 计算准确率
     accuracy = total_correct / total_samples    
     model.train()   
-    return accuracy
+    return accuracy, loss_rec
 
 
 def test(args):
@@ -242,7 +279,6 @@ if __name__  == "__main__":
     parser.add_argument('--to_be_predicted', type=str, required=False, default='{}\\test_A\\test.csv'.format(workspace),
                             help='Path to the numpy data to_be_predicted ;')
 
-
     parser.add_argument('--method', type=str, default='baseline')
 
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size 1024 for yelp, 256 for amazon.')
@@ -252,7 +288,7 @@ if __name__  == "__main__":
     parser.add_argument('--workers', type=int, default=-1,
                             help='number of workers')
     parser.add_argument('--momentum', default=0.9, type=float, help='SGD Momentum')
-    parser.add_argument('--resume', type=int, default=-1,help='Flag to resume training [default: -1];')
+    parser.add_argument('--resume', type=int, default=200,help='Flag to resume training [default: -1];')
     parser.add_argument('--action', type=str, default='train', help='Flag to resume training [default: False];')
 
 
@@ -261,7 +297,7 @@ if __name__  == "__main__":
     parser.add_argument('--gamma', type=float, default=0.5, help='lr decay')
     # optimizer
     parser.add_argument('--SGD', action='store_true', help='Flag to use SGD optimizer')
-    parser.add_argument('--weight-decay', default=1e-4, type=float, help='weight decay (default: 1e-4)')
+    parser.add_argument('--weight-decay', default=0.0, type=float, help='weight decay (default: 1e-4)')
 
     parser.add_argument('--epochs', type=int, default=500, help='Number of epochs.')
     parser.add_argument('--seed', type=int, default=2023, help='Random seed.')
@@ -272,7 +308,7 @@ if __name__  == "__main__":
     parser.add_argument('--extra_info', type=str, default='', help='Extra information in save_path')
 
     # model 
-    parser.add_argument('--model', type=str, default='DJMLP',help='Name of model to use')
+    parser.add_argument('--model', type=str, default='MLPlus',help='Name of model to use')
     # loss
     parser.add_argument('--loss', type=str, default='Cross_Entropy',help='Name of loss to use')
 
@@ -280,7 +316,7 @@ if __name__  == "__main__":
     parser.add_argument('--n_input', type=int, default=250, help='The number of the input feature')
     parser.add_argument('--d_input', type=int, default=2048, help='The dimension of the input feature')
     # checkpoint_path
-    parser.add_argument('--checkpoint_path', type=int, default=2048, help='The dimension of the input feature')
+    parser.add_argument('--checkpoint_path', type=str, default=r"E:\Data\MLData\videoFeature\video_results\first_stage\baseline\MLPlus\bs32_ep200_lr0.0001_step20_gm0.5\06_14_13_03", help='The dimension of the input feature')
 
 
     # args = parser.parse_args()
