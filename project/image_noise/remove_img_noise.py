@@ -9,7 +9,6 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import cv2
 import scipy.fftpack as fft
-import turtle as t
 
 
 def save_matrix_as_img(img_data, img_path):
@@ -32,8 +31,10 @@ def save_tif_result(out_tif, array, im_proj=None, im_geotrans=None, *, nodata: i
         gdal_array.NumericTypeCodeToGDALTypeCode(array.dtype),
         options=["COMPRESS=LZW"],
     )
-    if im_geotrans is not None:
-        out_ds.SetGeoTransform(im_geotrans)  # 写入仿射变换参数
+    if im_geotrans is None:
+        im_geotrans = (0.0, 1.0, 0.0, ref_height, 0.0, -1.0)
+    out_ds.SetGeoTransform(im_geotrans)  # 写入仿射变换参数
+
     if im_proj is not None:
         out_ds.SetProjection(im_proj)  # 写入投影
 
@@ -46,19 +47,6 @@ def save_tif_result(out_tif, array, im_proj=None, im_geotrans=None, *, nodata: i
             out_ds.GetRasterBand(i + 1).SetNoDataValue(nodata)
     out_ds.FlushCache()
     return True
-
-def split_band(img_path, save_floder):
-    """拆分波段"""
-    img_name = Path(img_path).stem
-    dataset = gdal.Open(img_path, gdal.GA_ReadOnly)
-    bands = dataset.RasterCount  # 获取波段数
-    for b in range(bands):
-        band = dataset.GetRasterBand(b + 1).ReadAsArray()
-        band_num = "{0:0=2d}".format(b + 1)
-        band[band >= 32767] = 0
-        save_path = os.path.join(save_floder, "{}_B{}.tif".format(img_name, band_num))
-        save_tif_result(save_path, band, nodata=65535)
-    del dataset
 
 
 def med_filter(img_path, save_floder):
@@ -127,10 +115,10 @@ def cv2_remove_noise(img_path, save_path):
     plt.imsave(save_path, moon_result)
     plt.show()
 
-def get_part_tif(img_path, save_path):
+def get_part_tif(img_path, save_path, start_line, end_line):
     dataset = gdal.Open(img_path, gdal.GA_ReadOnly)
     band = dataset.GetRasterBand(1).ReadAsArray()
-    data = band[1024:, :]
+    data = band[start_line:end_line, :]
     save_tif_result(save_path, data)
 
 def fill_invalid_value(img_path):
@@ -150,29 +138,21 @@ def fill_invalid_value(img_path):
     print(count)
     # save_tif_result(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20221221T024552_20230104T122441_B04_part_valid.tif", band)
 
-def subtract_base_value(img_path):
-    """减去夜间海里的值，默认夜间海里值为90"""
-    dataset = gdal.Open(img_path, gdal.GA_ReadOnly)    
-    band = dataset.GetRasterBand(1).ReadAsArray()
-    band = band.astype(dtype="int16")
-    band = band - 90
-    print(np.max(band), np.min(band))
-    tif_path = Path(img_path)
-    result_path = os.path.join(tif_path.parent, "{}_valid.tif".format(tif_path.stem))
-    save_tif_result(result_path, band)
-    return result_path
-
-def get_tif_as_array(img_path):
-    dataset = gdal.Open(img_path, gdal.GA_ReadOnly)    
-    band = dataset.GetRasterBand(1).ReadAsArray()
+def subtract_base_value(img_path, band_num=1, base_value=105):
+    """减去夜间海里的值，默认夜间海里值为100"""    
+    band = get_tif_as_array(img_path, band_num)
+    band = band - base_value
     return band
 
+def get_tif_as_array(img_path, band_num=1):
+    dataset = gdal.Open(img_path, gdal.GA_ReadOnly)    
+    band = dataset.GetRasterBand(band_num).ReadAsArray()
+    return band
 
-def remove_vertical(img_path):
+def remove_vertical(band, save_path):
     """纵向上滤波弱化条纹
         1、每二十行为一组，每列按照奇偶分为两类，将异常值赋值为每类中间十行的均值
     """
-    band = get_tif_as_array(img_path)
     heigh, width = band.shape
     new_band = np.copy(band)
     print(heigh, width)
@@ -194,9 +174,7 @@ def remove_vertical(img_path):
         data2 = np.where(data2 > (data2_mean + data2_threshold), (data2 * 0.2 + data2_mean * 0.8), data2)
         data2 = np.where(data2 < (data2_mean - data2_threshold), (data2 * 0.2 + data2_mean * 0.8), data2)
         new_band[i:i+cell_num:2, :] = data1
-        new_band[i+1:i+cell_num:2, :] = data2
-    tif_path = Path(img_path)
-    save_path = os.path.join(tif_path.parent, "{}_rmv.tif".format(tif_path.stem))
+        new_band[i+1:i+cell_num:2, :] = data2    
     save_tif_result(save_path, new_band)
 
 
@@ -238,10 +216,15 @@ def find_horizontal(img_path):
 
         
 def remove_noise(img_path, noise_path, save_path):
+    noise_heigh = 12288
     band = get_tif_as_array(img_path)
+    heigh, width = band.shape
+    cut_heigh = noise_heigh
+    if heigh < noise_heigh:
+        cut_heigh = heigh
     noise_band = get_tif_as_array(noise_path)
-    new_data = band[:7000, :].astype(dtype="int16")
-    new_data[:7000, :] = band[:7000, :] - noise_band[:7000, :]
+    new_data = band[:cut_heigh, :].astype(dtype=np.int16)
+    new_data[:cut_heigh, :] = band[:cut_heigh, :] - noise_band[:cut_heigh, :]
     save_tif_result(save_path, new_data)
 
 def remove_he(img_path):
@@ -306,39 +289,189 @@ def draw_horizontal(img_path):
     #show出图形
     plt.show()   
 
+def change_geotransform(img_path, save_path):
+    dataset = gdal.Open(img_path, gdal.GA_ReadOnly)
+    bands = dataset.RasterCount  # 获取波段数
+    if bands == 0:
+        return
+    band1 = dataset.GetRasterBand(1).ReadAsArray()
+    save_tif_result(save_path, band1, nodata=65535)
+    del dataset
 
+
+def remove_noise_by_fft():
+    """利用傅里叶变换去除条纹"""
+    tif_path = r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230222T101418_20230227T155433\GS18_MSS_L0S_20230222T101418_20230227T155433_B01_rm.tif"
+    img = get_tif_as_array(tif_path)
+    tif_path_p = Path(tif_path)
+    save_path = os.path.join(tif_path_p.parent, "{}_fft_rmv5.tif".format(tif_path_p.stem))
+
+    # f = np.fft.fft2(img)
+    # fshift = np.fft.fftshift(f)
+
+    # fshift[:5070, 3950:3970] = 0
+    # fshift[5166:, 3950:3970] = 0
+    # # fshift[:5070, 3950] = 0
+    # # fshift[5166:, 3970] = 0
+    # # fshift[5120:, :] = 0
+
+    # f_ishift = np.fft.ifftshift(fshift)
+    # img_back = np.fft.ifft2(f_ishift)
+    # img_back = np.abs(img_back)
+    # minv, maxv = np.amin(img, (0, 1)), np.amax(img, (0, 1))
+    # img_back = cv2.normalize(img_back, None, alpha=minv, beta=maxv, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_16U)
+    # save_tif_result(save_path, img_back, nodata=65535)
+
+    # # convert image to float and do dft saving as complex output
+    dft = cv2.dft(np.float32(img), flags=cv2.DFT_COMPLEX_OUTPUT)
+
+    # apply shift of origin from upper left corner to center of image
+    dft_shift = np.fft.fftshift(dft)
+
+    # create a mask, center square is 1, remaining all 0
+    rows, cols = img.shape
+    mask = np.zeros((rows,cols,2),np.uint8)
+    dft_shift[:5070, 3950:3970] = 1
+    dft_shift[5166:, 3950:3970] = 1
+    fshift = dft_shift * mask
+    back_ishift = np.fft.ifftshift(fshift)
+    img_back = cv2.idft(back_ishift)
+    img_back = cv2.magnitude(img_back[:, :, 0], img_back[:, :, 1])
+
+    # re-normalize to 16-bits
+    minv, maxv = np.amin(img, (0, 1)), np.amax(img, (0, 1))
+    img_back = cv2.normalize(img_back, None, alpha=minv, beta=maxv, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_16U)
+
+    # save tif
+    save_tif_result(save_path, img_back, nodata=65535)
+    sm_save_path = os.path.join(tif_path_p.parent, "{}_fft_sm5.tif".format(tif_path_p.stem))
+    save_tif_result(sm_save_path, fshift, nodata=65535)
+
+
+def fft_test():
+    
+    img = get_tif_as_array(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230222T101418_20230227T155433\GS18_MSS_L0S_20230222T101418_20230227T155433_B01.tif")
+
+    f = np.fft.fft2(img)
+    fshift = np.fft.fftshift(f)
+    # magnitude_spectrum = 20 * np.log(np.abs(fshift))
+
+    rows,cols = img.shape
+    crow,ccol = rows//2,cols//2
+    fshift[crow-30:crow+30, ccol-30:ccol+30] = 0
+    f_ishift = np.fft.ifftshift(fshift)
+    img_back = np.fft.ifft2(f_ishift)
+    img_back = np.abs(img_back)
+
+    plt.subplot(131)
+    plt.imshow(img,cmap = 'gray')
+    plt.title('Input Image')
+    plt.xticks([])
+    plt.yticks([])
+
+    plt.subplot(132)
+    plt.imshow(img_back,cmap = 'gray')
+    plt.title('Image After HPF')
+    plt.xticks([])
+    plt.yticks([])
+
+    plt.subplot(133)
+    plt.imshow(img_back)
+    plt.title('Result in JET')
+    plt.xticks([])
+    plt.yticks([])
+
+    plt.show()
+
+def test_dft():
+    radius = 500
+    tif_path = r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230310T191324_20230313T171720\GS18_MSS_L0S_20230310T191324_20230313T171720_B01_trans_rm.tif"
+    img = get_tif_as_array(tif_path)
+    tif_path_p = Path(tif_path)
+    save_path = os.path.join(tif_path_p.parent, "{}_fft_{}.tif".format(tif_path_p.stem, radius))
+
+    dft = cv2.dft(np.float32(img),flags = cv2.DFT_COMPLEX_OUTPUT)
+    dft_shift = np.fft.fftshift(dft)
+    # magnitude_spectrum = 20*np.log(cv2.magnitude(dft_shift[:,:,0],dft_shift[:,:,1]))
+    rows,cols = img.shape
+    crow,ccol = rows//2,cols//2
+    print(crow, ccol)
+    mask = np.zeros((rows,cols,2),np.uint8)
+    mask[crow-radius:crow+radius,ccol-radius:ccol+radius] = 1
+    fshift = dft_shift*mask
+    f_ishift = np.fft.ifftshift(fshift)
+    img_back = cv2.idft(f_ishift)
+    img_back = cv2.magnitude(img_back[:,:,0], img_back[:,:,1])
+    save_tif_result(save_path, img_back, nodata=65535)
+
+    # plt.subplot(121),plt.imshow(img,cmap = 'gray')
+    # plt.title('Input Image'),plt.xticks([]),plt.yticks([])
+    # plt.subplot(122),plt.imshow(img_back,cmap = 'gray')
+    # plt.title('Magnitude Spectrum'),plt.xticks([]),plt.yticks([])
+    # plt.show()
+
+
+def get_vertial_noise(band_path):
+    tif_path = Path(band_path)
+    save_path = os.path.join(tif_path.parent, "{}_rmv.tif".format(tif_path.stem))
+    valid_band = subtract_base_value(band_path, band_num=1)
+    rmv_tif_path = remove_vertical(valid_band, save_path)
 
 if __name__ == "__main__":
     """
         1、拆分波段
-        2、减去均值，默认夜间海水均值为90
-        3、利用均值移除横条纹，得到近似于竖条纹的噪音
-        4、用图像减去竖条纹噪音，实现竖条纹的去除
+        2、填充无效值
+        3、利用夜间拍摄数据获取噪声数据：减去均值，默认夜间海水均值为100
+        4、噪声在垂直方向上有规律，一强一弱，利用均值弱化横条纹，得到近似于竖条纹的噪音
+        5、用图像减去竖条纹噪音，实现竖条纹的去除
     """
     # min_filter(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230306T020432_20230307T104849_B04.tif", r"E:\Data\RS\remove_noise")
     # get_window_png(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230306T020432_20230307T104849_B04_rmnV.tif", r"E:\Data\RS\remove_noise\demo3.png")
     # cv2_remove_noise(r"E:\Data\RS\remove_noise\demo3.png", r"E:\Data\RS\remove_noise\demo3_rn1.png")
-    # get_part_tif(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230306T020432_20230307T104849_B04_rmn_part.tif", 
-    #              r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230306T020432_20230307T104849_B04_rmn_part1.tif")
-    # fill_invalid_value(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20221221T024552_20230104T122441_B04_part.tif")
+    workspace = r"E:\Data\RS\remove_noise"
+    tif_list = [
+        # "GS18_MSS_L0S_20230306T020432_20230307T104849",
+        # "GS18_MSS_L0S_20230310T191324_20230313T171720",
+
+        # "GS18_MSS_L0S_20230606T151928_20230613T141928",
+        # "GS18_MSS_L0S_20230723T152556_20230809T114326",
+        # "GS18_MSS_L0S_20230728T162416_20230808T184209",
+        # "GS18_MSS_L0S_20230815T141255_20230818T165547",
+        # "GS18_MSS_L0S_20230827T101806_20230831T105943",
+    ]
+    for tif in tif_list:
+        for band in range(4):
+            tif_path = os.path.join(workspace, tif, "{}_B0{}.tif".format(tif, band + 1))
+            save_tif_path = os.path.join(workspace, tif, "{}_B0{}_part.tif".format(tif, band + 1))
+
+            get_part_tif(tif_path, save_tif_path, 5000, 9200)
+    # get_part_tif(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230310T191324_20230313T171720\GS18_MSS_L0S_20230310T191324_20230313T171720_B01_trans.tif", 
+    #              r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230310T191324_20230313T171720\GS18_MSS_L0S_20230310T191324_20230313T171720_B01_trans_part.tif", 0, 2000)
+    # for i in range(4):
+    #     tif_path = r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230306T020432_20230307T104849\GS18_MSS_L0S_20230306T020432_20230307T104849_B0{}.tif".format(i + 1)
+    #     tif_path_v = Path(tif_path)
+    #     save_path = os.path.join(tif_path_v.parent, "{}_trans.tif".format(tif_path_v.stem))
+    #     change_geotransform(tif_path, save_path)
+
+    # fill_invalid_value(r"E:/Data/RS/remove_noise/GS18_MSS_L0S_20230103T011822_20230109T091202_B04_valid_rmv.tif")
     # find_vertical(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20221221T024552_20230104T122441_B04_part_ver1.tif")
     # find_horizontal(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20221221T024552_20230104T122441_B04_part_ver1.tif")
     # draw_horizontal(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20221221T024552_20230104T122441_B04_part_ver1.tif")
-    remove_he(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230306T020432_20230307T104849_B04_rmn_part.tif")
+    # remove_he(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230306T020432_20230307T104849_B04_rmn_part.tif")
 
     # 用夜间拍摄的海洋作为去噪数据
     # 1、将样例数据清洗，将异常值进行临近均值填充
-    # save_folder = r"E:\Data\RS\remove_noise"
-    # tif_path = r"E:\Data\RS\L0S\GS18_MSS_L0S_20221220T022918_20230104T120119\GS18_MSS_L0S_20221220T022918_20230104T120119.tif"
-    # tif_path_val = Path(tif_path)
-    # split_band(tif_path, save_folder)
-    # band4_path = os.path.join(save_folder, "{}_B04.tif".format(tif_path_val.stem))
-    # valid_tif_path = subtract_base_value(band4_path)
-    # rmv_tif_path = remove_vertical(valid_tif_path)
-    # print(rmv_tif_path)
+    tif_path = r"E:\Data\RS\L0S\GS18_MSS_L0S_20230227T192300_20230306T155532\GS18_MSS_L0S_20230227T192300_20230306T155532.tif"
+    tif_path_val = Path(tif_path)
 
+    # remove_noise(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230222T101418_20230227T155433\GS18_MSS_L0S_20230222T101418_20230227T155433_B01.tif",
+    #              r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230103T011822_20230109T091202\GS18_MSS_L0S_20230103T011822_20230109T091202_B01_trans_noise_resampleV.tif",
+    #              r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230222T101418_20230227T155433\GS18_MSS_L0S_20230222T101418_20230227T155433_B01_rm.tif")
 
-    # remove_noise(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230103T011822_20230109T091202_B04_valid.tif",
-    #              r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230103T011822_20230109T091202_B04_valid_rmv.tif",
-    #              r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230103T011822_20230109T091202_B04_valid_ver.tif")
+    # fft_test()
+    # test_dft()
+    # remove_noise_by_fft()
+
+    get_vertial_noise(r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230908T185311_20230915T131421\GS18_MSS_L0S_20230908T185311_20230915T131421_B01.tif")
+
 
