@@ -53,7 +53,7 @@ def med_filter(img_path, save_floder):
     """最小值滤波"""
     img_name = Path(img_path).stem
     dataset = gdal.Open(img_path, gdal.GA_ReadOnly)
-    band = dataset.GetRasterBand(1).ReadAsArray()
+    band = dataset.(1).ReadAsArray()
     heigh, width = band.shape
     print(heigh, width, img_name)
     new_band = ss.medfilt2d(band, [5,5])
