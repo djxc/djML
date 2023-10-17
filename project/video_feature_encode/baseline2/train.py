@@ -11,14 +11,7 @@ from tqdm import tqdm
 
 from baseline2model import linear50
 from baseline2Data import read_data
-
-# 设置超参数
-num_classes = 5
-batch_size = 32
-learning_rate = 0.001
-num_epochs = 50
-video_root_path = 'datas'
-
+from baseline2Config import video_root_path, learning_rate, num_epochs
 
 
 def train():
