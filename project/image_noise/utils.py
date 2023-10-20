@@ -181,7 +181,7 @@ def change_tif_datatype(input_tif, output_tif, dataType="float32"):
 
 if __name__ == "__main__":
     tif_list = [
-            r"E:\Data\RS\L0S\GS18_MSS_L0S_20230924T191720_20230925T094054.tif"
+            r"E:\Data\RS\result\GS18_20231014T204557_20231016T155715-1697287557-aa\patch\20231014T204557.tif"
         ]
     workspace = r"E:\Data\RS\remove_noise"
     for tif in tif_list:

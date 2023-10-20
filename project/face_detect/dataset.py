@@ -11,7 +11,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 class FaceDataset(torch.utils.data.Dataset):
-    '''
+    '''人脸
     '''
 
     def __init__(self, is_train, imageRoot, train_fold=8):
