@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from tqdm import tqdm
+from baseline2Config import batch_size
 
 class VideoDataSet(Dataset):
     # 定义数据集类

@@ -38,7 +38,7 @@ def train(num_epochs, batch_size, DATA_ROOT, learing_rate = 0.1):
     #     model.load_state_dict(torch.load(
     #         model_path + args.ckpt))        # 加载训练数据权重
     criterion = nn.BCEWithLogitsLoss()              # 损失函数
-    optimizer = optim.Adam(model.parameters(), lr=learing_rate)      # 优化函数
+    optimizer = optim.Adam(model.parameters(), lr=0.001)      # 优化函数
 
     
     train_iter = load_cloud_data(DATA_ROOT, batch_size)  
@@ -66,13 +66,10 @@ def train(num_epochs, batch_size, DATA_ROOT, learing_rate = 0.1):
                 epoch_loss += loss.item()
                 pbar.set_postfix(**{'loss': epoch_loss/step})
                 pbar.update(x.shape[0])              
-        torch.save(model.state_dict(), os.path.join(model_path, 'weights_unet_car_%d.pth' % epoch))        # 保存模型参数，使用时直接加载保存的path文件
+        torch.save(model.state_dict(), model_path + 'weights_unet_car_%d.pth' % epoch)        # 保存模型参数，使用时直接加载保存的path文件
     return model
 
     
 if __name__ == "__main__":
-    DATA_ROOT = r"D:\Data\MLData\MLData\segment\38cloud"
-    epoch_num = 10
-    batch_size = 6
-    learing_rate = 0.0001
-    train(epoch_num, batch_size, DATA_ROOT, learing_rate) 
+    DATA_ROOT = r"D:\Data\MLData\38cloud"
+    train(60, 4, DATA_ROOT) 
