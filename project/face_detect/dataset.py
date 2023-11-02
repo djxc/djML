@@ -26,6 +26,7 @@ class FaceDataset(torch.utils.data.Dataset):
             @param imageRoot 数据根目录
             @param train_fold 训练数据比例，一共10个fold
         """
+        self.is_train = is_train
         self.imageRoot = imageRoot
         self.folds = os.path.join(imageRoot, "FDDB-folds")
         self.imgs_infos = self.__list_files(train_fold)
@@ -53,13 +54,19 @@ class FaceDataset(torch.utils.data.Dataset):
         '''列出目录下所有的fold文件'''
         total_ellip_infos = []
         list_file = os.listdir(self.folds)
-        n = 0
-        for filename in list_file:
-            if filename.endswith("ellipseList.txt") and n <= train_fold:
+        for filename in list_file:            
+            if filename.endswith("ellipseList.txt"):
+                fold_num = int(filename.split("-")[2])
                 file_path = os.path.join(self.folds, filename)
-                ellip_infos_tmp = self.__parse_ellip_file(file_path)
-                total_ellip_infos.extend(ellip_infos_tmp)
-                n = n + 1
+                if self.is_train:
+                    if fold_num <= train_fold:
+                        ellip_infos_tmp = self.__parse_ellip_file(file_path)
+                        total_ellip_infos.extend(ellip_infos_tmp)
+                else:
+                    if fold_num > train_fold:
+                        ellip_infos_tmp = self.__parse_ellip_file(file_path)
+                        total_ellip_infos.extend(ellip_infos_tmp)
+
         return total_ellip_infos
     
 
@@ -139,6 +146,7 @@ def dataset_collate(batch):
         box = batch[bat][1]        
         image = batch[bat][0]
 
+        # image图像扩展到该batch中最大图像的尺寸
         b, w, h = image.shape
         new_image = np.zeros((b, max_width, max_heigh))
         new_image[:, 0:w, 0:h] = image

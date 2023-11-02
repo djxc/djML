@@ -31,9 +31,10 @@ def calc_loss(cls_loss, bbox_loss, cls_preds, cls_labels, bbox_preds, bbox_label
     return cls + bbox
 
 def cls_eval(cls_preds, cls_labels):
-    # 由于类别预测结果放在最后一维， `argmax` 需要指定最后一维。
+    """由于类别预测结果放在最后一维， `argmax` 需要指定最后一维。"""
     return float(
         (cls_preds.argmax(dim=-1).type(cls_labels.dtype) == cls_labels).sum())
 
 def bbox_eval(bbox_preds, bbox_labels, bbox_masks):
+    """bbox误差"""
     return float((torch.abs((bbox_labels - bbox_preds) * bbox_masks)).sum())

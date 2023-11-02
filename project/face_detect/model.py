@@ -5,32 +5,16 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 
-sizes = [[0.03, 0.037], [0.04, 0.051], [0.054, 0.062], [0.068, 0.074],
-         [0.074, 0.08]]
-ratios = [[1, 2, 0.5]] * 5
+from util import box_iou, box_corner_to_center
+
+# 要识别的目标相对于图像的大小
+# sizes = [[0.03, 0.037], [0.04, 0.051], [0.054, 0.062], [0.068, 0.074],
+#          [0.074, 0.08]]
+
+sizes = [[0.04, 0.08, 0.1], [0.12, 0.16, 0.2], [0.3, 0.4, 0.5], [0.55, 0.65, 0.7],
+         [0.75, 0.8, 0.85]]
+ratios = [[1, 1.5, 0.65]] * 5
 num_anchors = len(sizes[0]) + len(ratios[0]) - 1
-
-
-def box_iou(boxes1, boxes2):
-    """计算两个锚框或边界框列表中成对的交并比。"""
-    box_area = lambda boxes: ((boxes[:, 2] - boxes[:, 0]) *
-                              (boxes[:, 3] - boxes[:, 1]))
-    # `boxes1`, `boxes2`, `areas1`, `areas2`的形状:
-    # `boxes1`：(boxes1的数量, 4),
-    # `boxes2`：(boxes2的数量, 4),
-    # `areas1`：(boxes1的数量,),
-    # `areas2`：(boxes2的数量,)
-    areas1 = box_area(boxes1)
-    areas2 = box_area(boxes2)
-    #  `inter_upperlefts`, `inter_lowerrights`, `inters`的形状:
-    # (boxes1的数量, boxes2的数量, 2)
-    inter_upperlefts = torch.max(boxes1[:, None, :2], boxes2[:, :2])
-    inter_lowerrights = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])
-    inters = (inter_lowerrights - inter_upperlefts).clamp(min=0)
-    # `inter_areas` and `union_areas`的形状: (boxes1的数量, boxes2的数量)
-    inter_areas = inters[:, :, 0] * inters[:, :, 1]
-    union_areas = areas1[:, None] + areas2 - inter_areas
-    return inter_areas / union_areas
 
 def assign_anchor_to_bbox(ground_truth, anchors, device, iou_threshold=0.5):
     """将最接近的真实边界框分配给锚框。"""
@@ -56,16 +40,6 @@ def assign_anchor_to_bbox(ground_truth, anchors, device, iou_threshold=0.5):
         jaccard[anc_idx, :] = row_discard
     return anchors_bbox_map
 
-
-def box_corner_to_center(boxes):
-    """从（左上，右下）转换到（中间，宽度，高度）"""
-    x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
-    cx = (x1 + x2) / 2
-    cy = (y1 + y2) / 2
-    w = x2 - x1
-    h = y2 - y1
-    boxes = torch.stack((cx, cy, w, h), axis=-1)
-    return boxes
 
 def offset_boxes(anchors, assigned_bb, eps=1e-6):
     """对锚框偏移量的转换。"""
@@ -134,7 +108,7 @@ def multibox_prior(data, sizes, ratios):
     shift_y, shift_x = torch.meshgrid(center_h, center_w)
     shift_y, shift_x = shift_y.reshape(-1), shift_x.reshape(-1)
 
-    # 生成“boxes_per_pixel”个高和宽，
+    # 生成“boxes_per_pixel”个高和宽，所有的size于ratio[0]相乘，size[0]与ratio第一个元素之后的相乘
     # 之后用于创建锚框的四角坐标 (xmin, xmax, ymin, ymax)
     w = torch.cat((size_tensor * torch.sqrt(ratio_tensor[0]),
                    sizes[0] * torch.sqrt(ratio_tensor[1:])))\
