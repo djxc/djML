@@ -149,27 +149,6 @@ def download(name, cache_dir=os.path.join('/2020', 'data')):
         f.write(r.content)
     return fname
 
-#@save
-def read_data_bananas(is_train=True):
-    """读取香蕉检测数据集中的图像和标签。"""
-    data_dir = download_extract('banana-detection')
-    csv_fname = os.path.join(data_dir,
-                             'bananas_train' if is_train else 'bananas_val',
-                             'label.csv')
-    csv_data = pd.read_csv(csv_fname)
-    csv_data = csv_data.set_index('img_name')
-    images, targets = [], []
-    for img_name, target in csv_data.iterrows():
-        images.append(
-            torchvision.io.read_image(
-                os.path.join(data_dir,
-                             'bananas_train' if is_train else 'bananas_val',
-                             'images', f'{img_name}')))
-        # Here `target` contains (class, upper-left x, upper-left y,
-        # lower-right x, lower-right y), where all the images have the same
-        # banana class (index 0)
-        targets.append(list(target))
-    return images, torch.tensor(targets).unsqueeze(1) / 256
 
 
 # Defined in file: ./chapter_computer-vision/semantic-segmentation-and-dataset.md
@@ -246,19 +225,6 @@ class FlattenLayer(nn.Module):
     def forward(self, x):  # x shape: (batch, *, *, ...)
         return x.view(x.shape[0], -1)
 
-
-class BananasDataset(torch.utils.data.Dataset):
-    """一个用于加载香蕉检测数据集的自定义数据集。"""
-    def __init__(self, is_train):
-        self.features, self.labels = read_data_bananas(is_train)
-        print('read ' + str(len(self.features)) + (
-            f' training examples' if is_train else f' validation examples'))
-
-    def __getitem__(self, idx):
-        return (self.features[idx].float(), self.labels[idx])
-
-    def __len__(self):
-        return len(self.features)
 
 
 # Defined in file: ./chapter_computer-vision/semantic-segmentation-and-dataset.md
@@ -384,15 +350,6 @@ def load_ITCVD_label(label_path, img_name, feature):
     # print(img_name, label.shape)
     return label
 
-
-
-def load_data_bananas(batch_size):
-    """加载香蕉检测数据集。"""
-    train_iter = torch.utils.data.DataLoader(BananasDataset(is_train=True),
-                                             batch_size, shuffle=True)
-    val_iter = torch.utils.data.DataLoader(BananasDataset(is_train=False),
-                                           batch_size)
-    return train_iter, val_iter
 
 def load_data_ITCVD(batch_size):
     ''' 加载ITCVD数据集

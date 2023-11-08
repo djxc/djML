@@ -606,22 +606,3 @@ class Animator:
         display.clear_output(wait=True)
 
 
-def clipIMG(imgRoot):
-    '''裁剪图像
-        1、遍历图像，读取图像
-        2、首先以宽度单位读取高度，保存图像,图像名为该图像左上角在原始图像中的宽度_高度
-    '''
-    imgs = os.listdir(imgRoot)
-    imgSize = 1024
-    a = 0
-    for img in imgs:
-        imgPath = os.path.join(imgRoot, img)
-        imgData = cv2.imread(imgPath)
-        imgHeight = imgData.shape[0]
-        imgWidth = imgData.shape[1]
-        for width in range(0, imgWidth - imgSize + 1, imgSize):
-            for height in range(0, imgHeight - imgSize + 1, imgSize):
-                img_clip = imgData[height:height + imgSize, width:width + imgSize]
-                print(img_clip.shape)
-                cv2.imwrite(os.path.join("/2020/data/ITCVD/ITC_VD_Training_Testing_set/Testing/clipIMG",
-                    img.split('.')[0] + "_" + str(width) + "_" + str(height) + ".jpg"), img_clip)

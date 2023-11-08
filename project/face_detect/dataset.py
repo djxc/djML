@@ -41,12 +41,14 @@ class FaceDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         img_info = self.imgs_infos[idx]
         bboxes_list = []
+        image = self.__read_image(img_info.image_path)
+        b, h, w = image.shape
         for coordinate in img_info.coordinates:
             bboxes = calculate_bbox(coordinate)
-            bboxes.insert(0, 1)
+            bboxes = [bboxes[0]/ w, bboxes[1]/h, bboxes[2]/ w, bboxes[3]/h]
+            bboxes.insert(0, 0)
             bboxes_list.append(bboxes)
         bboxes = torch.from_numpy(np.array(bboxes_list, dtype=np.float32))
-        image = self.__read_image(img_info.image_path)
         return image, bboxes
 
 
@@ -155,7 +157,7 @@ def dataset_collate(batch):
         # label长度不一致需要进行调整,首先计算与最大长度差，生成长度差数组，追加到原来数据后
         dif_max = max_len - len(box)
         if dif_max > 0:
-            dif_maritx = np.zeros((dif_max, 5))
+            dif_maritx = np.zeros((dif_max, 5)) * -1
             box = np.append(box, dif_maritx, axis=0)
         box = np.expand_dims(box, axis=0)
 

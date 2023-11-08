@@ -13,8 +13,8 @@ from model import TinySSD, multibox_target, multibox_prior
 from util import process_bar, Accumulator, Timer, calculate_bbox, multibox_detection, bbox_to_rect, show_bboxes
 from loss import calc_loss, cls_eval, bbox_eval
 
-num_workers = 8
-batch_size = 4
+num_workers = 4
+batch_size = 1
 
 
 def load_face_data(data_root, batch_size):
@@ -22,12 +22,12 @@ def load_face_data(data_root, batch_size):
     '''
     print("load train data, batch_size", batch_size)
     train_iter = dataloader.DataLoader(
-        FaceDataset(True, data_root, train_fold=2), batch_size, shuffle=True,
-        drop_last=True, num_workers=num_workers, collate_fn=dataset_collate)
+        FaceDataset(True, data_root, train_fold=8), batch_size, shuffle=True,
+        drop_last=True, num_workers=num_workers) # , collate_fn=dataset_collate)
 
     test_iter = dataloader.DataLoader(
         FaceDataset(False, data_root, train_fold=8), batch_size, drop_last=True,
-        num_workers=num_workers, collate_fn=dataset_collate)
+        num_workers=num_workers) # , collate_fn=dataset_collate)
     return train_iter, test_iter
 
 
@@ -86,39 +86,6 @@ def testAnchors(image_path):
             show_bboxes(axi, bbox, labels)
     plt.show()
 
-    # # 模拟真值以及锚框
-    # ground_truth = torch.tensor([[0, 0.1, 0.08, 0.52, 0.92],
-    #                          [1, 0.55, 0.2, 0.9, 0.88]])
-    # anchors = torch.tensor([[0, 0.1, 0.2, 0.3], [0.15, 0.2, 0.4, 0.4],
-    #                     [0.63, 0.05, 0.88, 0.98], [0.66, 0.45, 0.8, 0.8],
-    #                     [0.57, 0.3, 0.92, 0.9]])
-
-    # # show_bboxes(fig.axes, ground_truth[:, 1:] * bbox_scale, ['dog', 'cat'], 'k')
-    # # show_bboxes(fig.axes, anchors * bbox_scale, ['0', '1', '2', '3', '4'])
-
-    # labels = multibox_target(anchors.unsqueeze(dim=0),
-    #                      ground_truth.unsqueeze(dim=0))
-    # print(labels)
-
-    # anchors = torch.tensor([[0.1, 0.08, 0.52, 0.92], [0.08, 0.2, 0.56, 0.95],
-    #                     [0.15, 0.3, 0.62, 0.91], [0.55, 0.2, 0.9, 0.88]])
-    # offset_preds = torch.tensor([0] * anchors.numel())
-    # cls_probs = torch.tensor([[0] * 4,  # 背景的预测概率
-    #                       [0.9, 0.8, 0.7, 0.1],  # 狗的预测概率
-    #                       [0.1, 0.2, 0.3, 0.9]])  # 猫的预测概率
-    # # show_bboxes(fig.axes, anchors * bbox_scale,
-    # #         ['dog=0.9', 'dog=0.8', 'dog=0.7', 'cat=0.9'])
-
-    # output = multibox_detection(cls_probs.unsqueeze(dim=0),
-    #                 offset_preds.unsqueeze(dim=0),
-    #                 anchors.unsqueeze(dim=0), nms_threshold=0.5)
-    # for i in output[0].detach().numpy():
-    #     if i[0] == -1:
-    #         continue
-    #     label = ('dog=', 'cat=')[int(i[0])] + str(i[1])
-    #     show_bboxes(fig.axes, [torch.tensor(i[2:]) * bbox_scale], label)
-
-
 
 def train(resume=False):
     """"""
@@ -126,8 +93,8 @@ def train(resume=False):
     DATA_ROOT = r"D:\Data\MLData\facedata"
     train_iter, verify_iter = load_face_data(DATA_ROOT, batch_size)  
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    net = TinySSD(num_classes=2)
-    trainer = torch.optim.SGD(net.parameters(), momentum=0.9, lr=0.01, weight_decay=5e-4)
+    net = TinySSD(num_classes=1)
+    trainer = torch.optim.SGD(net.parameters(), momentum=0.9, lr=0.001, weight_decay=5e-4)
     net=net.to(device)
     num_epochs = 200   
     if resume:
@@ -161,6 +128,7 @@ def train(resume=False):
             metric.add(cls_eval(cls_preds, cls_labels), cls_labels.numel(),
                     bbox_eval(bbox_preds, bbox_labels, bbox_masks),
                     bbox_labels.numel())
+            
             cls_total = cls_total + (1 - metric[0] / metric[1])
             bbox_total = bbox_total + metric[2] / metric[3]
             process_bar((i + 1) / numData, cls_total / (i + 1), bbox_total / (i+1), None, epoch + 1, start_str='', end_str='100%', total_length=35)
@@ -204,9 +172,9 @@ def test():
     batch_size = 1
     train_iter, test_iter = load_face_data(DATA_ROOT, batch_size)  
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    net = TinySSD(num_classes=2)
+    net = TinySSD(num_classes=1)
     net=net.to(device)
-    net.load_state_dict(torch.load(r'D:\Data\MLData\model\face_ssd_10.pkl'))
+    net.load_state_dict(torch.load(r'D:\Data\MLData\model\face_ssd_30.pkl'))
         # 训练精确度的和，训练精确度的和中的示例数
         # 绝对误差的和，绝对误差的和中的示例数
     net.eval()    
@@ -220,13 +188,13 @@ def test():
             output = multibox_detection(cls_probs, bbox_preds, anchors)
             idx = [i for i, row in enumerate(output[0]) if row[0] != -1]
             output = output[0, idx]
-            b, w, h = features[0].shape        
+            b, h, w = features[0].shape        
             bboxes = []
             for row in output:
                 result = row.numpy()    # 第一个值为类别(0是背景，不显示)，第二个为得分，剩下的为bbox     
                 cls = int(result[0])           
                 score = float(row[1])
-                if score < threshold or cls == 0:
+                if score < threshold:
                     continue           
                 bbox = result[2:6] * (w, h, w, h)
                 print("draw bbox", bbox, score, row[0])  
@@ -241,7 +209,7 @@ def log_result(epoch, cls_err, bbox_mae):
 
     
 if __name__ == "__main__":
-    train()
+    # train()
     # verify()
-    # test()
+    test()
     # testAnchors(r"D:\Data\MLData\facedata\2003\08\01\big\img_14.jpg")
