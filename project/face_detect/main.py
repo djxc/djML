@@ -167,14 +167,14 @@ def verify(net, verify_iter, device, epoch):
         print("\nverify:", epoch + 1, cls_err, bbox_mae)
     
 
-def test():    
+def test(model_path):    
     DATA_ROOT = r"D:\Data\MLData\facedata"
     batch_size = 1
     train_iter, test_iter = load_face_data(DATA_ROOT, batch_size)  
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     net = TinySSD(num_classes=1)
     net=net.to(device)
-    net.load_state_dict(torch.load(r'D:\Data\MLData\model\face_ssd_30.pkl'))
+    net.load_state_dict(torch.load(model_path))
         # 训练精确度的和，训练精确度的和中的示例数
         # 绝对误差的和，绝对误差的和中的示例数
     net.eval()    
@@ -211,5 +211,5 @@ def log_result(epoch, cls_err, bbox_mae):
 if __name__ == "__main__":
     # train()
     # verify()
-    test()
+    test(r'D:\Data\MLData\model\face_ssd_55.pkl')
     # testAnchors(r"D:\Data\MLData\facedata\2003\08\01\big\img_14.jpg")
