@@ -1,6 +1,116 @@
 # -*- coding: utf-8 -*-
 import gdal
 
+
+import os
+import time
+from pathlib import Path
+from typing import List
+from ast import literal_eval
+from osgeo import gdal, ogr, osr
+
+class CutTiffService:
+    def __init__(self) -> None:
+        self.output_path = r"d:/data/"
+
+    def __parse_coords(self, coorsArray: List) -> List:
+        """解析坐标,返回以下形式坐标
+            target_coordinates = [
+                (13541488.507040609, 4712868.672028078),
+                (13541520.944112001, 4712868.672028078),
+                (13541520.944112001, 4712910.253917306),
+                (13541488.507040609, 4712910.253917306),
+                (13541488.507040609, 4712868.672028078)
+            ]
+        """
+        target_coordinates = []       
+        coorsArray = coorsArray.split('|')
+        coorsArray = list(map(literal_eval, coorsArray))
+        target_coordinates.append(coorsArray)
+        return target_coordinates   
+
+    def __create_result_name(self, imgName: str):
+        """生成结果文件名称"""
+        current_time_str = time.strftime("%Y%m%d%H%M%S", time.localtime(time.time()))
+        newName = "cut_" + imgName + "_" + current_time_str + ".tiff"
+        cutResultName = self.output_path + newName
+        return cutResultName, newName
+    
+    def crop_tiff_by_vector_layer(self, input_path: str, coorsArray: str, imgName: str):
+        """根据矢量图层进行裁剪栅格数据
+            @param input_path 待裁剪的tif
+            @param coorsArray 坐标字符串
+            @param imgName tif名称
+            @return 结果文件路径以及名称
+        """
+        cutResultName, newName = self.__create_result_name(imgName)     
+        shp_path = cutResultName + "_cutpolygon.shp"
+        try:
+            coordinates = self.__parse_coords(coorsArray)
+            self.__create_shp_vector_layer(coordinates, shp_path, input_path)
+            options = gdal.WarpOptions(     
+                creationOptions = ["BIGTIFF=YES", "COMPRESS=LZW"],
+                cropToCutline = True, 
+                cutlineDSName=shp_path,
+                dstNodata=0
+            )
+            g = gdal.Warp(cutResultName, input_path, options = options)   
+            g = None
+            print('图像裁剪完成。')     
+        except Exception as e:
+            print("图像裁剪错误:{}".format(e))
+        finally:
+           self.__remove_shp(shp_path)
+
+        return cutResultName, newName 
+    
+    def __remove_shp(self, shp_path):
+        """移除shp文件"""
+        if os.path.exists(shp_path):            
+            shp_file_path = Path(shp_path)
+            shp_root = shp_file_path.parent
+            shp_name = shp_file_path.stem
+            shp_type_list = [".shp", ".dbf", ".prj", ".shx"]
+            for shp_type in shp_type_list:
+                shp_type_name = shp_name + shp_type
+                shp_type_path = os.path.join(shp_root, shp_type_name)
+                if os.path.exists(shp_type_path):
+                    os.remove(shp_type_path)
+
+    def __create_shp_vector_layer(self, coordinates: List, shp_file_path: str, origin_raster_path: str):
+        """创建shape文件，坐标系和待切割tif一致
+            @param coordinates 坐标数组
+            @param shp_file_path shp文件保存路径
+            @parma origin_raster_path 待切割tif路径
+        """
+
+        # 创建多边形图层
+        raster_ds = gdal.Open(origin_raster_path)
+        sr = osr.SpatialReference()
+        sr.ImportFromWkt(raster_ds.GetProjection())
+
+        driver = ogr.GetDriverByName('ESRI Shapefile')
+        polygon_ds = driver.CreateDataSource(shp_file_path)
+        layer = polygon_ds.CreateLayer('polygon', geom_type=ogr.wkbPolygon, srs=sr)
+
+        # 创建多边形几何对象
+        ring = ogr.Geometry(ogr.wkbLinearRing)
+        for coord in coordinates[0]:
+            ring.AddPoint(coord[0], coord[1])
+        ring.CloseRings()
+        polygon = ogr.Geometry(ogr.wkbPolygon)
+        polygon.AddGeometry(ring)
+
+        # 创建要素并设置几何对象
+        feature_defn = layer.GetLayerDefn()
+        feature = ogr.Feature(feature_defn)
+        feature.SetGeometry(polygon)
+
+        # 将要素添加到图层
+        layer.CreateFeature(feature)
+        feature = None
+        polygon_ds = None
+
 # 读取要切的原图
 in_ds = gdal.Open("chengdu-xinglong-lake.tif")
 print("open tif file succeed")

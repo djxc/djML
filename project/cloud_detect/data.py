@@ -78,11 +78,13 @@ class CloudDataset(torch.utils.data.Dataset):
 
     def __get_image_list(self):
         '''列出训练集所有影像数据'''
-        imgs_list_file = os.path.join(self.train_folder, "training_patches_38-Cloud.csv")
+        imgs_list_file = os.path.join(self.train_folder, "training_patches_38-cloud_nonempty.csv")
         with open(imgs_list_file) as imgs_files:
             imgs_list = imgs_files.readlines()
         imgs_list = imgs_list[1:]
         random.shuffle(imgs_list)
+        # 先选一部分数据进行测试
+        imgs_list = imgs_list[:400]
         return imgs_list
 
     

@@ -1,4 +1,5 @@
 
+from glob import glob
 import os
 from osgeo import gdal, gdal_array
 from pathlib import Path
@@ -179,13 +180,69 @@ def change_tif_datatype(input_tif, output_tif, dataType="float32"):
     result_array = result_array.astype(dtype=dataType)
     save_tif_result(output_tif, result_array, im_proj, geoTrans)
 
+
+def patch_tif(input_path, size=384 * 3):
+    """每个波段为384x384 tif图片"""
+    dataset = gdal.Open(input_path)
+    geoTrans = dataset.GetGeoTransform()
+    im_proj = dataset.GetProjection()                       # 地图投影信息
+    im_width = dataset.RasterXSize                          # 栅格矩阵的列数
+    im_height = dataset.RasterYSize 
+    im_w_num = im_width // size
+    im_h_num = im_height // size
+    img_name =  Path(input_path).stem
+    bands = dataset.RasterCount
+    workspace = r"D:\Data\MLData\MLData\segment\38cloud\self-cloud_test1"
+    band_names = ["blue", "green", "red", "nir"]
+    for band_index in range(bands):       
+        band_array = dataset.GetRasterBand(band_index + 1).ReadAsArray()
+        band_name = band_names[band_index]
+        save_band_folder = os.path.join(workspace, "test_{}".format(band_name))
+        Path(save_band_folder).mkdir(parents=True, exist_ok=True)
+        for i in range(im_h_num):
+            for j in range(im_w_num):
+                patch = band_array[i * size:(i+1)*size, j*size:(j+1)*size]
+                save_path = os.path.join(save_band_folder, "{}_patch_{}_{}_by_{}_{}.TIF".format(band_name, i, i, j, img_name))
+                save_tif_result(save_path, patch, im_proj)
+
+def merge_png2tif(folder):
+    file_list = glob(os.path.join(folder, "*.png"))  
+    patch_size = 384 * 3
+    raw_data = np.zeros([8 * patch_size, 6 * patch_size], dtype=np.uint16)
+
+    for tmp_json in file_list:            
+        # 打开图片
+        img = Image.open(tmp_json)
+        out = img.resize((patch_size, patch_size), Image.ANTIALIAS)
+        data = np.array(out)        
+        row, col = Path(tmp_json).stem.split("_by_")
+        row = int(float(row.split("_")[-1]))
+        col = int(float(col.split("_")[0]))
+        if data is not None:
+            raw_data[
+            row * patch_size: (row + 1) * patch_size,
+            col * patch_size: (col + 1) * patch_size] = data
+    raw_data = raw_data[:, :]
+    save_path = os.path.join(Path(folder).parent, "result.tif")
+    save_tif_result(save_path, raw_data)
+
+
 if __name__ == "__main__":
     tif_list = [
-            r"E:\Data\RS\L0S\GS18_MSS_L0S_20230924T191720_20230925T094054.tif"
+            # r"E:\Data\RS\L0S\GS18_MSS_L0S_20231108T155018_20231109T142946\GS18_MSS_L0S_20231108T155018_20231109T142946.tif",
+            # r"E:\Data\RS\L0S\GS18_MSS_L0S_20231115T124524_20231121T101728\GS18_MSS_L0S_20231115T124524_20231121T101728.tif",
+            # r"E:\Data\RS\L0S\GS18_MSS_L0S_20231118T114543_20231122T160657\GS18_MSS_L0S_20231118T114543_20231122T160657.tif",
+            # r"E:\Data\RS\L0S\GS18_MSS_L0S_20231118T213025_20231122T162103\GS18_MSS_L0S_20231118T213025_20231122T162103.tif",
+            # r"E:\Data\RS\L0S\GS18_MSS_L0S_20231126T035836_20231127T103932\GS18_MSS_L0S_20231126T035836_20231127T103932.tif",
+            # r"E:\Data\RS\L0S\GS18_MSS_L0S_20240119T153015_20240122T091734\GS18_MSS_L0S_20240119T153015_20240122T091734.tif",
+            # r"E:\Data\RS\L0S\GS18_MSS_L0S_20231201T130309_20231204T143914\GS18_MSS_L0S_20231201T130309_20231204T143914_match.tif"
+        
+            r"E:\Data\RS\L0S\GS18_MSS_L0S_20231201T130309_20231204T143914\GS18_MSS_L0S_20231201T130309_20231204T143914.tif",
+            r"E:\Data\RS\L0S\GS18_MSS_L0S_20240105T103336_20240110T140359\GS18_MSS_L0S_20240105T103336_20240110T140359.tif"
         ]
-    workspace = r"E:\Data\RS\remove_noise"
     for tif in tif_list:
         tif_name = Path(tif).stem
+        workspace = Path(tif).parent
         save_folder = os.path.join(workspace, tif_name)
         if not os.path.exists(save_folder):
             os.mkdir(save_folder)
@@ -205,3 +262,5 @@ if __name__ == "__main__":
 
     # merge_bands(band_list, r"E:\Data\RS\remove_noise\GS18_MSS_L0S_20230409T135419_20230410T173116_rs\GS18_MSS_L0S_20230409T135419_20230410T173116_rs_pred.tif")
 
+    # patch_tif(r"E:\Data\RS\result\GS18_20230928T145756_20231006T085718\GS18_20230928T145756_20231006T085718-1695884276-aa\GS18_MSS_L0S_20230928T145756_20231007T093530\GS18_MSS_L0S_20230928T145756_20231007T093530_RS.tif")
+    # merge_png2tif(r"D:\Data\MLData\MLData\segment\38cloud\self-cloud_test1\result")

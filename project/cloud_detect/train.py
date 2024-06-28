@@ -1,4 +1,5 @@
 
+import os
 import torch 
 from tqdm import tqdm
 from torch import nn, optim
@@ -7,12 +8,12 @@ import torch.utils.data.dataloader as dataloader
 from model import Unet
 from data import CloudDataset
 
-model_path = r"D:\Data\MLData\38cloud"
+model_path = r"D:\Data\MLData\MLData\segment\38cloud"
 # 是否使用cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def load_cloud_data(data_root, batch_size):
-    ''' 加载ITCVD数据集
+    ''' 加载云数据集
     '''
     num_workers = 4
     print("load train data, batch_size", batch_size)
@@ -25,12 +26,13 @@ def load_cloud_data(data_root, batch_size):
     #     num_workers=num_workers)
     return train_iter
 
-def train(num_epochs, batch_size, DATA_ROOT):
+def train(num_epochs, batch_size, DATA_ROOT, learing_rate = 0.1):
     """训练模型  
         1、创建unet模型，并绑定设备
         2、加载数据，使用batch
         3、训练模型，输入
     """
+
     model = Unet(4, 1).to(device)
     # if args.ckpt:
     #     model.load_state_dict(torch.load(
