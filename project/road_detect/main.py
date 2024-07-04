@@ -73,36 +73,33 @@ def train(args):
 def test(args):
     import matplotlib.pyplot as plt
     """测试模型，显示模型的输出结果"""
+    batch_size = 1 #args.batch_size                    # 每次计算的batch大小
+
     model = Unet(3, 1)
-    model.load_state_dict(torch.load(model_path +
-                                     args.ckpt, map_location='cpu'))        # 加载训练数据权重
-    liver_dataset = DJDataset(
-        data_path + "streetCarTest", trainOrTest=args.action, transform=x_transforms, target_transform=y_transforms)
-    dataloaders = DataLoader(liver_dataset, batch_size=1)
+    model.load_state_dict(torch.load(args.ckpt, map_location='cpu'))        # 加载训练数据权重
+    
+    liver_dataset = RoadDataset(train_file, verify_file, trainOrTest=args.action,
+                              transform=y_transforms, target_transform=y_transforms)    
+    dataloaders = DataLoader(liver_dataset,
+                             batch_size=batch_size, shuffle=True, num_workers=1)  # 使用pytorch的数据加载函数加载数据
     model.eval()
 
-    plt.ion()
     with torch.no_grad():
-        dj = 0
         for x, _ in dataloaders:
             y = model(x)
+            y = torch.functional.F.softmax(y, 0)
+            y = y.argmax(0)
             img_y = torch.squeeze(y).numpy()
-            # x, y = img_y.shape
-            # for i in range(x):
-            #     for j in range(y):
-            #         if img_y[i, j] > 0:
-            #             img_y[i, j] = 255
-            #         else:
-            #             img_y[i, j] = 0
-            # im = Image.fromarray(img_y)
-            # im.show()
-            # if im.mode != 'RGB':
-            #     im = im.convert('RGB')
-            # im.save("predict_%3d.png"%dj)
-            # dj = dj + 1
-            plt.imshow(img_y)
-            plt.pause(5)
-        plt.show()
+            fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
+            ax[0].imshow(torch.squeeze(x).numpy().transpose(1, 2, 0))
+            ax[0].set_xlabel('Epchos')
+            ax[0].set_ylabel('Log(sum squared error)')
+            ax[0].set_title('Learning rate 0.01')
+            ax[1].imshow(img_y)
+            ax[1].set_xlabel('Epchos')
+            ax[1].set_ylabel('Log(sum squared error)')
+            ax[1].set_title('Learning rate 0.0001')
+            plt.show()
 
 
 if __name__ == '__main__':
@@ -117,9 +114,9 @@ if __name__ == '__main__':
     # parse.add_argument("--ckpt", type=str,
     #                    help="the path of model pre-train weight file", default=None, required=False)
     args = parse.parse_args()
-    args.action = "train"
+    args.action = "test"
     args.batch_size = 4
-    args.ckpt = None
+    args.ckpt = r"D:\Data\MLData\rs_road\model\weights_unet_road_19_0.00229.pth"
     if args.action == "train":
         train(args)
         print('train')
