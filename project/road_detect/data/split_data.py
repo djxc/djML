@@ -1,5 +1,6 @@
 import os
 import random
+from pathlib import Path
 
 
 def split_data(workspace):
@@ -29,4 +30,13 @@ def split_data(workspace):
                 img_path = os.path.join(img_folder, verify_img)
                 label_path = os.path.join(label_folder, verify_img)
                 img_path_file.write("{},{}\n".format(img_path, label_path))
+
+def create_test_path_file(test_folder):
+    """"""
+    img_list = os.listdir(test_folder)
+    with open(os.path.join(Path(test_folder).parent, "test.csv"), "w") as img_path_file:
+            for verify_img in img_list:
+                img_path = os.path.join(test_folder, verify_img)
+                img_path_file.write("{}\n".format(img_path))
+
 
