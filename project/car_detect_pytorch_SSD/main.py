@@ -1,5 +1,6 @@
 
 import os
+import math
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 import torch
 import torchvision
@@ -11,10 +12,10 @@ import matplotlib.pyplot as plt
 from SSDModel import TinySSD
 from data import CarDataset
 from util import multibox_prior, show_bboxes, multibox_target, multibox_detection, show_images
-from util import Timer, Accumulator
+from util import Timer, Accumulator, rotate_bbox, show_rotate_bboxes
 from loss import calc_loss,cls_eval, bbox_eval
 
-CURRENT_IMAGE_PATH = r"D:\Data\MLData\车辆检测\car_det_train"
+CURRENT_IMAGE_PATH = r"D:\Data\MLData\车辆检测\car_det_train_small"
 
 def load_data_car(batch_size):
     """加载香蕉检测数据集。"""
@@ -50,8 +51,8 @@ def testAnchors(img_path):
     '''测试锚框
         锚框的个数与sizes和ratios有关，即为:len(sizes) + len(ratios) - 1
     '''
-    sizes = [0.6, 0.4, 0.2]
-    ratios = [1, 2, 0.5]
+    sizes = [0.1, 0.08, 0.05] # 占整幅图像面积大小比例
+    ratios = [3, 2]    # 长宽比
     img = Image.open(img_path)
     h, w = img.height, img.width
 
@@ -66,11 +67,35 @@ def testAnchors(img_path):
        
     bbox_scale = torch.tensor((w, h, w, h))
     i = 120
-    show_bboxes(fig.axes, boxes[i, i, :, :] * bbox_scale, ['s=0.75, r=1', 's=0.5, r=1', 's=0.25, r=1', 's=0.75, r=2',
-             's=0.75, r=0.5'])
+    show_bboxes(fig.axes, boxes[i, i, :, :] * bbox_scale, ['s=0.1, r=2', 's=0.08, r=2', 's=0.05, r=2', 's=0.1, r=3'])
     # plt.savefig(CURRENT_IMAGE_PATH + "temp.jpg", dpi=580)
     plt.show()
 
+def test_rotate_anchors(img_path: str):
+    """测试旋转锚框"""
+    sizes = [0.1, 0.08, 0.05] # 占整幅图像面积大小比例
+    ratios = [3, 2]    # 长宽比
+    img = Image.open(img_path)
+    h, w = img.height, img.width
+
+    print(img.size, h, w, ratios)
+    X = torch.rand(size=(1, 3, h, w))
+    # 根据大小以及长宽比生成锚框
+    Y_tmp = multibox_prior(X, sizes=sizes, ratios=ratios)
+    Y = rotate_bbox(Y_tmp)
+    fig = plt.imshow(img)
+
+    boxes = Y.reshape(h, w, len(sizes) + len(ratios) - 1, 4)       # resize，5为每个像素锚框的个数，4为每个锚框的数据
+    print(boxes[250, 250,:,:])
+       
+    bbox_scale = torch.tensor((w, h, w, h))
+    i = 120
+    boxes_tmp = boxes[i, i, :, :] * bbox_scale
+    boxes_list_rotate = rotate_bbox(boxes_tmp)
+    for boxes_rotate in boxes_list_rotate:
+        show_rotate_bboxes(fig.axes, boxes_rotate, [1] * len(boxes_rotate))
+    # plt.savefig(CURRENT_IMAGE_PATH + "temp.jpg", dpi=580)
+    plt.show()
 
 def display(img, output, threshold):
     # set_figsize((5, 5))
@@ -108,8 +133,6 @@ def carRecognition():
     net = TinySSD(num_classes=1)
     trainer = torch.optim.SGD(net.parameters(), lr=0.2, weight_decay=5e-4)
     num_epochs, timer = 20, Timer()
-    # animator = Animator(xlabel='epoch', xlim=[1, num_epochs],
-    #                     legend=['class error', 'bbox mae'])
     net=net.to(device)
     # 定义两类损失函数
     cls_loss = nn.CrossEntropyLoss(reduction='none')
@@ -139,14 +162,11 @@ def carRecognition():
         cls_err, bbox_mae = 1 - metric[0] / metric[1], metric[2] / metric[3]
         if (epoch + 1) % 5 == 0:
             torch.save(net.state_dict(), r'D:\Data\MLData\model\banna_ssd_' + str(epoch + 1) + '.pkl')
-        # animator.add(epoch + 1, (cls_err, bbox_mae))
         print("epoch:", epoch + 1, cls_err, bbox_mae)
     print(f'class err {cls_err:.2e}, bbox mae {bbox_mae:.2e}')
     print(f'{len(train_iter.dataset) / timer.stop():.1f} examples/sec on '
         f'{str(device)}')
     
-    
-   
 
 def predict(net, X, device):
     net.eval()
@@ -168,9 +188,10 @@ def predictNet():
 
 
 if __name__ == "__main__":
-    img_path = os.path.join(CURRENT_IMAGE_PATH, "input_path", "1.tif")
+    img_path = os.path.join(CURRENT_IMAGE_PATH, "input_path", "1_1_3.png")
     # multiLevelAnchors(img_path)
     # testAnchors(img_path)
+    test_rotate_anchors(img_path)
 
     carRecognition()
 

@@ -1,8 +1,12 @@
 import time
+import math
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.patches import Polygon as mPolygon
+
+from config import car_color_list, car_class_list
 
 def multibox_prior(data, sizes, ratios):
     """生成以每个像素为中心具有不同形状的锚框。
@@ -46,10 +50,45 @@ def multibox_prior(data, sizes, ratios):
     output = out_grid + anchor_manipulations
     return output.unsqueeze(0)
 
+def rotate_bbox(anchors: torch.tensor):
+    """对bbox按照其中心点进行旋转
+        1、需要将bbox中心点移动到原点，每个顶点需要先减去中心点，然后对每个点进行旋转，旋转之后加上中心点
+    """
+    x1, y1, x2, y2 = anchors[:, :, 0], anchors[:, :, 1], anchors[:, :, 2], anchors[:, :, 3]
+    cx = (x1 + x2) / 2
+    cy = (y1 + y2) / 2
+    anchors[:, :, 0] = anchors[:, :, 0] - cx
+    anchors[:, :, 1] = anchors[:, :, 1] - cy
+    anchors[:, :, 2] = anchors[:, :, 2] - cx
+    anchors[:, :, 3] = anchors[:, :, 3] - cy
+    thea_size = 8
+    thea_list = [ math.pi * i / (thea_size * 2) for i in range(thea_size + 1)] 
+    thea_list1 = [ -math.pi * i / (thea_size * 2) for i in range(1, thea_size + 1)] 
+    thea_list.extend(thea_list1)
+    bbox_list = []
+    for thea in thea_list:
+        rotate_maritx = np.array([
+            [math.cos(thea), -math.sin(thea)],
+            [math.sin(thea), math.cos(thea)]
+        ])
+        bbox_tmp = []
+        for b in anchors.numpy():
+            corn1 = rotate_maritx.dot(np.array([b[0], b[1]]).T)
+            corn2 = rotate_maritx.dot(np.array([b[2], b[1]]).T)
+            corn3 = rotate_maritx.dot(np.array([b[2], b[3]]).T)
+            corn4 = rotate_maritx.dot(np.array([b[0], b[3]]).T)
+            bbox_tmp.append([corn1.tolist(), corn2.tolist(), corn3.tolist(), corn4.tolist()])
+        bbox1 = torch.from_numpy(np.array(bbox_tmp))
+        bbox1[:, :, 0] = bbox1[:, :, 0] + cx
+        bbox1[:, :, 1] = bbox1[:, :, 1] + cy
+        bbox_list.append(bbox1)
+    return bbox_list
+
+
 def bbox_to_rect(bbox, color):
     # 将边界框 (左上x, 左上y, 右下x, 右下y) 格式转换成 matplotlib 格式：
     # ((左上x, 左上y), 宽, 高)
-    return patches.Rectangle(xy=(bbox[0], bbox[1]), width=bbox[2] - bbox[0],
+    return patches.Rectangle(xy=( ), width=bbox[2] - bbox[0],
                              height=bbox[3] - bbox[1], fill=False,
                              edgecolor=color, linewidth=1)
 
@@ -73,7 +112,19 @@ def show_bboxes(axes, bboxes, labels=None, colors=None):
             axes.text(rect.xy[0], rect.xy[1], labels[i], va='center',
                       ha='center', fontsize=6, color=text_color,
                       bbox=dict(facecolor=color, lw=0, alpha=0))
-            
+
+
+def show_rotate_bboxes(axes, bboxes, labels):
+    """"""
+    for i, vertices in enumerate(bboxes):
+        # 使用Polygon类创建多边形
+        polygon = mPolygon(vertices, facecolor=None, fill=False, edgecolor=car_color_list[labels[i]], linewidth=1.5)
+        # 将多边形添加到图形中
+        axes.add_patch(polygon)
+        axes.text(vertices[0][0], vertices[0][1] + 4, car_class_list[labels[i]], va='center',
+                    ha='center', fontsize=8, color=car_color_list[labels[i]],
+                    bbox=dict(facecolor='green', lw=0, alpha=0))
+
 # Defined in file: ./chapter_linear-networks/linear-regression.md
 class Timer:
     """Record multiple running times."""
