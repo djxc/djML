@@ -72,8 +72,9 @@ def rotate_bbox(anchors: torch.tensor):
             [math.sin(thea), math.cos(thea)]
         ])
         bbox_tmp = []
-        anchors_tmp = anchors[:]
-        bbox1_tmp = torch.einsum('kl, ijk->ijl', rotate_maritx.T, anchors_tmp)
+        _, shape_a, shape_b = anchors.shape
+        anchors_tmp = anchors.reshape([1, shape_a, 4, 2])
+        bbox1_tmp = torch.einsum('kl, ijk->ijl', rotate_maritx, anchors_tmp)
         for b in anchors.numpy():
             corn1 = rotate_maritx.dot(np.array([b[0], b[1]]).T)
             corn2 = rotate_maritx.dot(np.array([b[2], b[1]]).T)
