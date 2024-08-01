@@ -41,11 +41,11 @@ def multibox_prior(data, sizes, ratios):
                    sizes[0] / torch.sqrt(ratio_tensor[1:])))
     # 除以2来获得半高和半宽
     anchor_manipulations = torch.stack(
-        (-w, -h, w, h)).T.repeat(in_height * in_width, 1) / 2
+        (-w, -h, w, -h, w, h, -w, h)).T.repeat(in_height * in_width, 1) / 2
 
     # 每个中心点都将有“boxes_per_pixel”个锚框，
     # 所以生成含所有锚框中心的网格，重复了“boxes_per_pixel”次
-    out_grid = torch.stack([shift_x, shift_y, shift_x, shift_y],
+    out_grid = torch.stack([shift_x, shift_y, shift_x, shift_y, shift_x, shift_y, shift_x, shift_y],
                            dim=1).repeat_interleave(boxes_per_pixel, dim=0)
     output = out_grid + anchor_manipulations
     return output.unsqueeze(0)
@@ -54,7 +54,7 @@ def rotate_bbox(anchors: torch.tensor):
     """对bbox按照其中心点进行旋转
         1、需要将bbox中心点移动到原点，每个顶点需要先减去中心点，然后对每个点进行旋转，旋转之后加上中心点
     """
-    x1, y1, x2, y2 = anchors[:, :, 0], anchors[:, :, 1], anchors[:, :, 2], anchors[:, :, 3]
+    x1, y1, x2, y2 = anchors[:, :, 0], anchors[:, :, 1], anchors[:, :, 4], anchors[:, :, 5]
     cx = (x1 + x2) / 2
     cy = (y1 + y2) / 2
     anchors[:, :, 0] = anchors[:, :, 0] - cx
@@ -72,6 +72,8 @@ def rotate_bbox(anchors: torch.tensor):
             [math.sin(thea), math.cos(thea)]
         ])
         bbox_tmp = []
+        anchors_tmp = anchors[:]
+        bbox1_tmp = torch.einsum('kl, ijk->ijl', rotate_maritx.T, anchors_tmp)
         for b in anchors.numpy():
             corn1 = rotate_maritx.dot(np.array([b[0], b[1]]).T)
             corn2 = rotate_maritx.dot(np.array([b[2], b[1]]).T)
