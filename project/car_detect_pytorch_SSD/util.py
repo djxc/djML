@@ -67,10 +67,10 @@ def rotate_bbox(anchors: torch.tensor):
     thea_list.extend(thea_list1)
     bbox_list = []
     for thea in thea_list:
-        rotate_maritx = np.array([
+        rotate_maritx = torch.from_numpy(np.array([
             [math.cos(thea), -math.sin(thea)],
             [math.sin(thea), math.cos(thea)]
-        ])
+        ]))
         bbox_tmp = []
         _, shape_a, shape_b = anchors.shape
         anchors_tmp = anchors.reshape([1, shape_a, 4, 2])
