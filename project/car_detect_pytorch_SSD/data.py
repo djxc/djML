@@ -208,7 +208,6 @@ class CarDataset(torch.utils.data.Dataset):
         self.transform = torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToTensor(),
-                torchvision.transforms.Resize(10000),
                 torchvision.transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ]
@@ -221,7 +220,7 @@ class CarDataset(torch.utils.data.Dataset):
         image_paths = []
         label_paths = []
         csv_fname = os.path.join(workspace, 'train_{}.csv'.format(self.fold_num) if self.is_train else 'verify_{}.csv'.format(self.fold_num))
-        with open(csv_fname) as csv_file:
+        with open(csv_fname, encoding="utf-8") as csv_file:
             car_data_list = csv_file.readlines()
             for car_data in car_data_list:
                 img_label = car_data.replace("\n", "").split(",")
@@ -248,27 +247,39 @@ class CarDataset(torch.utils.data.Dataset):
         label_path = self.label_paths[idx]
         feature = Image.open(img_path)
         feature = feature.convert('RGB')
-
-        label_info = ET.parse(label_path)  # 替换成你的XML文件路径
-        root = label_info.getroot()
-        size_info = root.find('size')
-        width_size = int(size_info.find("width").text)
-        height_size = int(size_info.find("height").text)
-        object_list = root.find('objects').findall("object")
+        
         label_list = []
-        for object in object_list:
-            label_tmp = []
-            car_class = object.find("possibleresult").find("name").text 
-            label_tmp.append(car_class_list.index(car_class))
-            points = object.find("points")
-            for i, point in enumerate(points):
-                if i == 0 or i == 3:
-                    point_txt = point.text.split(",")
-                    width = float(point_txt[0])/width_size
-                    height = float(point_txt[1])/height_size
-                    label_tmp.append(width)
-                    label_tmp.append(height)
-            label_list.append(label_tmp)
+        with open(label_path) as label_file:
+            label_lines = label_file.readlines()
+            for label_info in label_lines:
+                info_tmp = label_info.replace("\n", "").split(",")
+                label_tmp = []
+                for i, info in enumerate(info_tmp):
+                    if i == 0:
+                        label_tmp.append(int(info))
+                    else:
+                        label_tmp.append(float(info))
+                label_list.append(label_tmp)
+        # label_info = ET.parse(label_path)  # 替换成你的XML文件路径
+        # root = label_info.getroot()
+        # size_info = root.find('size')
+        # width_size = int(size_info.find("width").text)
+        # height_size = int(size_info.find("height").text)
+        # object_list = root.find('objects').findall("object")
+        # label_list = []
+        # for object in object_list:
+        #     label_tmp = []
+        #     car_class = object.find("possibleresult").find("name").text 
+        #     label_tmp.append(car_class_list.index(car_class))
+        #     points = object.find("points")
+        #     for i, point in enumerate(points):
+        #         if i == 0 or i == 3:
+        #             point_txt = point.text.split(",")
+        #             width = float(point_txt[0])/width_size
+        #             height = float(point_txt[1])/height_size
+        #             label_tmp.append(width)
+        #             label_tmp.append(height)
+        #     label_list.append(label_tmp)
         return (self.transform(feature), torch.tensor(label_list))
 
     def __len__(self):

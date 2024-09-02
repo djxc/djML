@@ -62,12 +62,12 @@ def testAnchors(img_path):
     Y = multibox_prior(X, sizes=sizes, ratios=ratios)
     fig = plt.imshow(img)
 
-    boxes = Y.reshape(h, w, len(sizes) + len(ratios) - 1, 4)       # resize，5为每个像素锚框的个数，4为每个锚框的数据
-    print(boxes[250, 250,:,:])
+    boxes = Y.reshape(h, w, len(sizes) + len(ratios) - 1, 8)       # resize，5为每个像素锚框的个数，4为每个锚框的数据
+    print(boxes[150, 150,:,:])
        
-    bbox_scale = torch.tensor((w, h, w, h))
+    bbox_scale = torch.tensor((w, h, w, h, w, h, w, h))
     i = 120
-    show_bboxes(fig.axes, boxes[i, i, :, :] * bbox_scale, ['s=0.1, r=2', 's=0.08, r=2', 's=0.05, r=2', 's=0.1, r=3'])
+    show_rotate_bboxes(fig.axes, boxes[i, i, :, :] * bbox_scale, [1] * (len(sizes) + len(ratios) - 1))
     # plt.savefig(CURRENT_IMAGE_PATH + "temp.jpg", dpi=580)
     plt.show()
 
@@ -81,16 +81,17 @@ def test_rotate_anchors(img_path: str):
     print(img.size, h, w, ratios)
     X = torch.rand(size=(1, 3, h, w))
     # 根据大小以及长宽比生成锚框
-    Y_tmp = multibox_prior(X, sizes=sizes, ratios=ratios)
-    Y = rotate_bbox(Y_tmp)
+    Y = multibox_prior(X, sizes=sizes, ratios=ratios)
+    # Y = rotate_bbox(Y_tmp)
     fig = plt.imshow(img)
 
-    boxes = Y.reshape(h, w, len(sizes) + len(ratios) - 1, 4)       # resize，5为每个像素锚框的个数，4为每个锚框的数据
+    boxes = Y.reshape(h, w, len(sizes) + len(ratios) - 1, 8)       # resize，5为每个像素锚框的个数，4为每个锚框的数据
     print(boxes[250, 250,:,:])
        
-    bbox_scale = torch.tensor((w, h, w, h))
+    bbox_scale = torch.tensor((w, h, w, h, w, h, w, h))
     i = 120
     boxes_tmp = boxes[i, i, :, :] * bbox_scale
+    boxes_tmp = boxes_tmp.unsqueeze(0)
     boxes_list_rotate = rotate_bbox(boxes_tmp)
     for boxes_rotate in boxes_list_rotate:
         show_rotate_bboxes(fig.axes, boxes_rotate, [1] * len(boxes_rotate))
@@ -187,11 +188,21 @@ def predictNet():
         display(img, output.cpu(), threshold=0.9)
 
 
+def test_matrix():
+    import numpy as np
+    A = np.array([[1.0, 2.0],  [3.0, 4.0]])
+    B = np.random.rand(3, 2, 4)
+    result = A.dot(B)
+    print(B)
+    print(result)
+    result = np.einsum('j,nj->nj', A, B)
+
 if __name__ == "__main__":
+    # test_matrix()
     img_path = os.path.join(CURRENT_IMAGE_PATH, "input_path", "1_1_3.png")
     # multiLevelAnchors(img_path)
     # testAnchors(img_path)
-    test_rotate_anchors(img_path)
+    # test_rotate_anchors(img_path)
 
     carRecognition()
 

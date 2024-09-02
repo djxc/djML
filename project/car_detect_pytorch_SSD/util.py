@@ -57,33 +57,40 @@ def rotate_bbox(anchors: torch.tensor):
     x1, y1, x2, y2 = anchors[:, :, 0], anchors[:, :, 1], anchors[:, :, 4], anchors[:, :, 5]
     cx = (x1 + x2) / 2
     cy = (y1 + y2) / 2
-    anchors[:, :, 0] = anchors[:, :, 0] - cx
-    anchors[:, :, 1] = anchors[:, :, 1] - cy
-    anchors[:, :, 2] = anchors[:, :, 2] - cx
-    anchors[:, :, 3] = anchors[:, :, 3] - cy
+    anchors = anchors.squeeze(0)
+    anchors[:, 0] = anchors[:, 0] - cx
+    anchors[:, 1] = anchors[:, 1] - cy
+    anchors[:, 2] = anchors[:, 2] - cx
+    anchors[:, 3] = anchors[:, 3] - cy
+    anchors[:, 4] = anchors[:, 4] - cx
+    anchors[:, 5] = anchors[:, 5] - cy
+    anchors[:, 6] = anchors[:, 6] - cx
+    anchors[:, 7] = anchors[:, 7] - cy
+
+    shape_a, shape_b = anchors.shape
+    anchors_tmp = anchors.reshape([shape_a, 4, 2])
+    anchors_tmp = anchors_tmp.transpose(2, 1)
+    
     thea_size = 8
     thea_list = [ math.pi * i / (thea_size * 2) for i in range(thea_size + 1)] 
     thea_list1 = [ -math.pi * i / (thea_size * 2) for i in range(1, thea_size + 1)] 
     thea_list.extend(thea_list1)
     bbox_list = []
     for thea in thea_list:
-        rotate_maritx = torch.from_numpy(np.array([
+        rotate_maritx = torch.tensor([
             [math.cos(thea), -math.sin(thea)],
             [math.sin(thea), math.cos(thea)]
-        ]))
-        bbox_tmp = []
-        _, shape_a, shape_b = anchors.shape
-        anchors_tmp = anchors.reshape([1, shape_a, 4, 2])
-        bbox1_tmp = torch.einsum('kl, ijk->ijl', rotate_maritx, anchors_tmp)
-        for b in anchors.numpy():
-            corn1 = rotate_maritx.dot(np.array([b[0], b[1]]).T)
-            corn2 = rotate_maritx.dot(np.array([b[2], b[1]]).T)
-            corn3 = rotate_maritx.dot(np.array([b[2], b[3]]).T)
-            corn4 = rotate_maritx.dot(np.array([b[0], b[3]]).T)
-            bbox_tmp.append([corn1.tolist(), corn2.tolist(), corn3.tolist(), corn4.tolist()])
-        bbox1 = torch.from_numpy(np.array(bbox_tmp))
-        bbox1[:, :, 0] = bbox1[:, :, 0] + cx
-        bbox1[:, :, 1] = bbox1[:, :, 1] + cy
+        ], device=anchors.device)
+        bbox1 = torch.einsum('ij,njk->nik', rotate_maritx, anchors_tmp)  
+        bbox1 = bbox1.transpose(2, 1).reshape(shape_a, 8)
+        bbox1[:, 0] = bbox1[:, 0] + cx
+        bbox1[:, 1] = bbox1[:, 1] + cy
+        bbox1[:, 2] = bbox1[:, 2] + cx
+        bbox1[:, 3] = bbox1[:, 3] + cy
+        bbox1[:, 4] = bbox1[:, 4] + cx
+        bbox1[:, 5] = bbox1[:, 5] + cy
+        bbox1[:, 6] = bbox1[:, 6] + cx
+        bbox1[:, 7] = bbox1[:, 7] + cy
         bbox_list.append(bbox1)
     return bbox_list
 
@@ -121,6 +128,7 @@ def show_rotate_bboxes(axes, bboxes, labels):
     """"""
     for i, vertices in enumerate(bboxes):
         # 使用Polygon类创建多边形
+        vertices = vertices.reshape(4, 2)
         polygon = mPolygon(vertices, facecolor=None, fill=False, edgecolor=car_color_list[labels[i]], linewidth=1.5)
         # 将多边形添加到图形中
         axes.add_patch(polygon)
