@@ -151,7 +151,7 @@ def predictNet(net, test_data, log_file):
         zt_result = torch.eq(zt_hat.max(1, keepdim=True)[1], zt_one_hot.max(1, keepdim=True)[1])
         zh_result = torch.eq(zh_hat.max(1, keepdim=True)[1], zh_one_hot.max(1, keepdim=True)[1])
         fb_result = torch.eq(fb_hat.max(1, keepdim=True)[1], fb_one_hot.max(1, keepdim=True)[1])
-        accNum = accNum + categeo_result.sum().item() + zt_result.sum().item() + zh_result.sum().item() + fb_result.sum().item()
+        accNum = accNum + categeo_result.sum().item() * 0.3 + zt_result.sum().item() * 0.2 + zh_result.sum().item() * 0.25 + fb_result.sum().item() * 0.25
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
     log_str = "train acc: %.4f, use time:%.2fs" % (acc, use_time)
