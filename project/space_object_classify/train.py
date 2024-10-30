@@ -38,13 +38,10 @@ def train(augmentation=False):
     
     trainer = torch.optim.SGD(net.parameters(), lr=learing_rate, weight_decay=1e-3)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(trainer, T_max=10, eta_min=0, last_epoch=-1)
-    # 定义两类损失函数
-    if augmentation:
-        loss = mixup_criterion
-    else:
-        loss = torch.nn.CrossEntropyLoss()    
+    loss = torch.nn.CrossEntropyLoss()    
 
     log_file = open(r"{}\train_log_{}_pre.txt".format(model_root, model_name), "a+")
+    data_size = len(train_data) * batchSize
     for epoch in range(num_epochs): 
         startTime = time.time()
         # 训练精确度的和，训练精确度的和中的示例数
@@ -53,36 +50,28 @@ def train(augmentation=False):
         loss_total = 0
         for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(train_data):          
             trainer.zero_grad()
-            visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot = visible_img_plus.to(device), sar_img_plus.to(device), cate_one_hot.to(device), zt_one_hot.to(device), zh_one_hot.to(device), fb_one_hot.to(device)
-            if augmentation:
-                X, Y, y_b, lam = data_augmentation(X, Y)
+            visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot = visible_img_plus.to(device), sar_img_plus.to(device), cate_one_hot.to(device), zt_one_hot.to(device), zh_one_hot.to(device), fb_one_hot.to(device)           
 
             categeo_hat, zt_hat, zh_hat, fb_hat = net(visible_img_plus, sar_img_plus)            
-            
-            if augmentation:
-                y_b = y_b.squeeze(dim=1)
-                l = loss(y_hat, Y, y_b, lam)
-            else:
-                cate_one_hot = cate_one_hot.squeeze(dim=1)
-                zt_one_hot = zt_one_hot.squeeze(dim=1)
-                zh_one_hot = zh_one_hot.squeeze(dim=1)
-                fb_one_hot = fb_one_hot.squeeze(dim=1)
+                       
+            cate_one_hot = cate_one_hot.squeeze(dim=1)
+            zt_one_hot = zt_one_hot.squeeze(dim=1)
+            zh_one_hot = zh_one_hot.squeeze(dim=1)
+            fb_one_hot = fb_one_hot.squeeze(dim=1)
 
-                categeo_loss = loss(categeo_hat, cate_one_hot)
-                zt_loss = loss(zt_hat, zt_one_hot)
-                zh_loss = loss(zh_hat, zh_one_hot)
-                fb_loss = loss(fb_hat, fb_one_hot)
-                l = categeo_loss + zt_loss + zh_loss + fb_loss
-
-            trainer.zero_grad()
+            categeo_loss = loss(categeo_hat, cate_one_hot)
+            zt_loss = loss(zt_hat, zt_one_hot)
+            zh_loss = loss(zh_hat, zh_one_hot)
+            fb_loss = loss(fb_hat, fb_one_hot)
+            l = categeo_loss + zt_loss + zh_loss + fb_loss
             l.backward()
             trainer.step()
-            scheduler.step()
-            if(i % 10 == 0):
-                print(datetime.now(), "learning_rate:", scheduler.get_last_lr()[0], " ; loss:{}".format(l))
-
             loss_total = loss_total + l
+
+            if(i % 10 == 0):
+                print(datetime.now(), "learning_rate:", scheduler.get_last_lr()[0], " ; loss:{}".format(loss_total / ((i + 1) * batchSize)))
         endTime = time.time()
+        scheduler.step()
         if epoch > 0 and epoch % 5 == 0:
             acc = predictNet(net, test_data, log_file)
             if acc > best_acc:
@@ -91,11 +80,11 @@ def train(augmentation=False):
         # 每10轮保存一次结果
         if epoch > 0 and (epoch + 1) % 10 == 0:
             save_net(net, "{}\\{}_epoch.pth".format(model_path, epoch))
-        log_info = 'epoch %d, loss %.4f, use time:%.2fs\n' % (epoch + 1, loss_total, endTime - startTime)
+        log_info = 'epoch %d, loss %.4f, use time:%.2fs\n' % (epoch + 1, loss_total / data_size, endTime - startTime)
         log_file.write(log_info) 
         log.append(log_info)        
         print('epoch %d, loss %.4f, use time:%.2fs' % (
-            epoch + 1, loss_total, endTime - startTime))
+            epoch + 1, loss_total / data_size, endTime - startTime))
     log_file.close()
 
 def load_net(net):
@@ -151,12 +140,18 @@ def predictNet(net, test_data, log_file):
     startTime = time.time()
     accNum = 0
     net.eval()
-    for i, (features, labels) in enumerate(test_data):     
-        X, Y = features.to(device), labels.to(device)
-        y_hat = net(X)
-        Y = Y.squeeze(dim=1)
-        result = torch.eq(y_hat.max(1, keepdim=True)[1], Y.max(1, keepdim=True)[1])
-        accNum = accNum + result.sum().item()
+    for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(test_data):     
+        visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot = visible_img_plus.to(device), sar_img_plus.to(device), cate_one_hot.to(device), zt_one_hot.to(device), zh_one_hot.to(device), fb_one_hot.to(device)
+        categeo_hat, zt_hat, zh_hat, fb_hat = net(visible_img_plus, sar_img_plus)   
+        cate_one_hot = cate_one_hot.squeeze(dim=1)
+        zt_one_hot = zt_one_hot.squeeze(dim=1)
+        zh_one_hot = zh_one_hot.squeeze(dim=1)
+        fb_one_hot = fb_one_hot.squeeze(dim=1)
+        categeo_result = torch.eq(categeo_hat.max(1, keepdim=True)[1], cate_one_hot.max(1, keepdim=True)[1])
+        zt_result = torch.eq(zt_hat.max(1, keepdim=True)[1], zt_one_hot.max(1, keepdim=True)[1])
+        zh_result = torch.eq(zh_hat.max(1, keepdim=True)[1], zh_one_hot.max(1, keepdim=True)[1])
+        fb_result = torch.eq(fb_hat.max(1, keepdim=True)[1], fb_one_hot.max(1, keepdim=True)[1])
+        accNum = accNum + categeo_result.sum().item() + zt_result.sum().item() + zh_result.sum().item() + fb_result.sum().item()
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
     log_str = "train acc: %.4f, use time:%.2fs" % (acc, use_time)
