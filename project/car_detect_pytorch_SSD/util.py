@@ -80,7 +80,7 @@ def rotate_bbox(anchors: torch.tensor):
         rotate_maritx = torch.tensor([
             [math.cos(thea), -math.sin(thea)],
             [math.sin(thea), math.cos(thea)]
-        ])
+        ], device=anchors.device)
         bbox1 = torch.einsum('ij,njk->nik', rotate_maritx, anchors_tmp)  
         bbox1 = bbox1.transpose(2, 1).reshape(shape_a, 8)
         bbox1[:, 0] = bbox1[:, 0] + cx

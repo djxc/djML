@@ -208,7 +208,6 @@ class CarDataset(torch.utils.data.Dataset):
         self.transform = torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToTensor(),
-                torchvision.transforms.Resize(10000),
                 torchvision.transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ]
@@ -221,7 +220,7 @@ class CarDataset(torch.utils.data.Dataset):
         image_paths = []
         label_paths = []
         csv_fname = os.path.join(workspace, 'train_{}.csv'.format(self.fold_num) if self.is_train else 'verify_{}.csv'.format(self.fold_num))
-        with open(csv_fname) as csv_file:
+        with open(csv_fname, encoding="utf-8") as csv_file:
             car_data_list = csv_file.readlines()
             for car_data in car_data_list:
                 img_label = car_data.replace("\n", "").split(",")

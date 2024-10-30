@@ -15,7 +15,7 @@ from util import multibox_prior, show_bboxes, multibox_target, multibox_detectio
 from util import Timer, Accumulator, rotate_bbox, show_rotate_bboxes
 from loss import calc_loss,cls_eval, bbox_eval
 
-CURRENT_IMAGE_PATH = r"D:\Data\MLData\car_det_train_small"
+CURRENT_IMAGE_PATH = r"D:\Data\MLData\车辆检测\car_det_train_small"
 
 def load_data_car(batch_size):
     """加载香蕉检测数据集。"""
