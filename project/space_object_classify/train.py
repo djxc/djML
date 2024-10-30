@@ -188,6 +188,8 @@ def verify():
     
 def test():
     """"""
+    test_data = load_space_object_data(batchSize)
+    net = ResNet().to(device)
     pass
 
 if __name__ == "__main__":
