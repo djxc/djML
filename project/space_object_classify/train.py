@@ -140,6 +140,8 @@ def predictNet(net, test_data, log_file):
     startTime = time.time()
     accNum = 0
     net.eval()
+    categeo_acc, zt_acc, zh_acc, fb_acc = 0, 0, 0, 0
+
     for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(test_data):     
         visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot = visible_img_plus.to(device), sar_img_plus.to(device), cate_one_hot.to(device), zt_one_hot.to(device), zh_one_hot.to(device), fb_one_hot.to(device)
         categeo_hat, zt_hat, zh_hat, fb_hat = net(visible_img_plus, sar_img_plus)   
@@ -151,10 +153,14 @@ def predictNet(net, test_data, log_file):
         zt_result = torch.eq(zt_hat.max(1, keepdim=True)[1], zt_one_hot.max(1, keepdim=True)[1])
         zh_result = torch.eq(zh_hat.max(1, keepdim=True)[1], zh_one_hot.max(1, keepdim=True)[1])
         fb_result = torch.eq(fb_hat.max(1, keepdim=True)[1], fb_one_hot.max(1, keepdim=True)[1])
-        accNum = accNum + categeo_result.sum().item() * 0.3 + zt_result.sum().item() * 0.2 + zh_result.sum().item() * 0.25 + fb_result.sum().item() * 0.25
+        categeo_acc = categeo_acc + categeo_result.sum().item()
+        zt_acc = zt_acc + zt_result.sum().item()
+        zh_acc = zh_acc + zh_result.sum().item()
+        fb_acc = fb_acc + fb_result.sum().item()
+        accNum = accNum + (categeo_acc * 0.3 + zt_acc * 0.2 + zh_acc * 0.25 + fb_acc * 0.25) / 4
     use_time = time.time() - startTime
     acc = accNum / (len(test_data) * batchSize)
-    log_str = "train acc: %.4f, use time:%.2fs" % (acc, use_time)
+    log_str = "categeo_acc: %.4f, zt_acc: %.4f, zh_acc: %.4f, fb_acc: %.4f, train acc: %.4f, use time:%.2fs" % (categeo_acc, zt_acc, zh_acc, fb_acc, acc, use_time)
     print(log_str)
     log_file.write(log_str)
     return acc
