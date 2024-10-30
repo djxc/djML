@@ -139,10 +139,10 @@ def load_space_object_data(batch_size):
     return train_iter, test_iter
 
 if __name__ == "__main__":
-    # split_verfy_train()
-    train_data, verify_data = load_space_object_data(10)
-    for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(train_data):  
-        print(i)      
+    split_verfy_train()
+    # train_data, verify_data = load_space_object_data(10)
+    # for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(train_data):  
+    #     print(i)      
 
 
 

@@ -34,7 +34,7 @@ def train(augmentation=False):
     '''
     train_data, test_data = load_space_object_data(batchSize)
     best_acc = 0
-    net = ResNet()
+    net = ResNet().to(device)
     
     trainer = torch.optim.SGD(net.parameters(), lr=learing_rate, weight_decay=1e-3)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(trainer, T_max=10, eta_min=0, last_epoch=-1)
@@ -186,7 +186,9 @@ def verify():
         for pred in pred_result:
             result.write("{},{}\n".format(pred["image_name"], pred["label"]))
     
-
+def test():
+    """"""
+    pass
 
 if __name__ == "__main__":
     # net = createResNet()
