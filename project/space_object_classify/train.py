@@ -7,14 +7,14 @@ import numpy as np
 import torch.nn as nn
 # from data import mixup_data, cutmix_data, rotate_data
 from model import ResNet
-from data import load_space_object_data, model_root
+from data import load_space_object_data, load_test_space_object_data, rootPath, model_root, object_infos
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 resume = True
-batchSize = 4
+batchSize = 8
 learing_rate = 0.01
 num_epochs = 300
-model_name = "resnet"
+model_name = "resnet-se"
 
 log = ["{} batchSize: {}\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), batchSize)]
 model_path = r"{}\{}".format(model_root, model_name)
@@ -63,7 +63,7 @@ def train(augmentation=False):
             zt_loss = loss(zt_hat, zt_one_hot)
             zh_loss = loss(zh_hat, zh_one_hot)
             fb_loss = loss(fb_hat, fb_one_hot)
-            l = categeo_loss + zt_loss + zh_loss + fb_loss
+            l = categeo_loss * 0.3 + zt_loss * 0.2 + zh_loss * 0.25 + fb_loss * 0.25
             l.backward()
             trainer.step()
             loss_total = loss_total + l
@@ -71,12 +71,11 @@ def train(augmentation=False):
             if(i % 10 == 0):
                 print(datetime.now(), "learning_rate:", scheduler.get_last_lr()[0], " ; loss:{}".format(loss_total / ((i + 1) * batchSize)))
         endTime = time.time()
-        scheduler.step()
-        if epoch > 0 and epoch % 5 == 0:
-            acc = predictNet(net, test_data, log_file)
-            if acc > best_acc:
-                best_acc = acc
-                save_net(net, "{}\\best_model.pth".format(model_path))
+        scheduler.step()       
+        acc = predictNet(net, test_data, log_file)
+        if acc > best_acc:
+            best_acc = acc
+            save_net(net, "{}\\best_model.pth".format(model_path))
         # 每10轮保存一次结果
         if epoch > 0 and (epoch + 1) % 10 == 0:
             save_net(net, "{}\\{}_epoch.pth".format(model_path, epoch))
@@ -89,10 +88,13 @@ def train(augmentation=False):
 
 def load_net(net):
     """加载模型的参数"""
-    best_model_path = "{}\\best_model.pth".format(model_path)
+    best_model_path = "{}\\best_model1.pth".format(model_path)
     if os.path.exists(best_model_path):
         print("加载模型。。。")
-        net.load_state_dict(torch.load(best_model_path))
+        if device.type == "cpu":
+            net.load_state_dict(torch.load(best_model_path, map_location ='cpu'))
+        else:
+            net.load_state_dict(torch.load(best_model_path))
 
 
 def save_net(net, model_path: str):
@@ -141,6 +143,7 @@ def predictNet(net, test_data, log_file):
     accNum = 0
     net.eval()
     categeo_acc, zt_acc, zh_acc, fb_acc = 0, 0, 0, 0
+    test_data_size = (len(test_data) * batchSize)
 
     for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(test_data):     
         visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot = visible_img_plus.to(device), sar_img_plus.to(device), cate_one_hot.to(device), zt_one_hot.to(device), zh_one_hot.to(device), fb_one_hot.to(device)
@@ -157,40 +160,88 @@ def predictNet(net, test_data, log_file):
         zt_acc = zt_acc + zt_result.sum().item()
         zh_acc = zh_acc + zh_result.sum().item()
         fb_acc = fb_acc + fb_result.sum().item()
-        accNum = accNum + (categeo_acc * 0.3 + zt_acc * 0.2 + zh_acc * 0.25 + fb_acc * 0.25) / 4
+        accNum = accNum + (categeo_acc * 0.3 + zt_acc * 0.2 + zh_acc * 0.25 + fb_acc * 0.25) / batchSize
     use_time = time.time() - startTime
-    acc = accNum / (len(test_data) * batchSize)
-    log_str = "categeo_acc: %.4f, zt_acc: %.4f, zh_acc: %.4f, fb_acc: %.4f, train acc: %.4f, use time:%.2fs" % (categeo_acc, zt_acc, zh_acc, fb_acc, acc, use_time)
+
+    acc = accNum / test_data_size
+    log_str = "categeo_acc: %.4f, zt_acc: %.4f, zh_acc: %.4f, fb_acc: %.4f, train acc: %.4f, use time:%.2fs" % (categeo_acc/test_data_size, 
+                                                                                                                zt_acc/test_data_size, 
+                                                                                                                zh_acc/test_data_size, 
+                                                                                                                fb_acc/test_data_size, 
+                                                                                                                acc, use_time)
     print(log_str)
     log_file.write(log_str)
     return acc
 
 def verify():
     """"""
-    test_data = load_test_leaf_data(8)
-    net = create_net(model_name, 176)
-    net = net.to(device)
+    train_data, test_data = load_space_object_data(1)
+    net = ResNet().to(device)
     load_net(net)
     net.eval()
-    pred_result = []
-    for i, (features, image_names) in enumerate(test_data):     
-        X = features.to(device)
-        y_hat = net(X)
-        y_hat = y_hat.argmax(dim=-1).cpu().numpy().tolist()
-        for image_name, y in zip(image_names, y_hat):
-            pred_result.append({"image_name": image_name, "label": categories[y]})
-        if (i+1) % 100 == 0:
-            print("{}/{}".format(i, len(test_data)))
+    categeo_acc, zt_acc, zh_acc, fb_acc = 0, 0, 0, 0
+    accNum = 0
+    for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(test_data):     
+        visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot = visible_img_plus.to(device), sar_img_plus.to(device), cate_one_hot.to(device), zt_one_hot.to(device), zh_one_hot.to(device), fb_one_hot.to(device)
+        categeo_hat, zt_hat, zh_hat, fb_hat = net(visible_img_plus, sar_img_plus)   
+        cate_one_hot = cate_one_hot.squeeze(dim=1)
+        zt_one_hot = zt_one_hot.squeeze(dim=1)
+        zh_one_hot = zh_one_hot.squeeze(dim=1)
+        fb_one_hot = fb_one_hot.squeeze(dim=1)
+        zt_result = torch.eq(zt_hat.max(1, keepdim=True)[1], zt_one_hot.max(1, keepdim=True)[1])
+        zh_result = torch.eq(zh_hat.max(1, keepdim=True)[1], zh_one_hot.max(1, keepdim=True)[1])
+        fb_result = torch.eq(fb_hat.max(1, keepdim=True)[1], fb_one_hot.max(1, keepdim=True)[1])
+        zt_acc = zt_acc + zt_result.sum().item()
+        zh_acc = zh_acc + zh_result.sum().item()
+        fb_acc = fb_acc + fb_result.sum().item()
 
-    with open(r"D:\Data\MLData\classify\classify-leaves\result1.csv", "w+") as result:
-        for pred in pred_result:
-            result.write("{},{}\n".format(pred["image_name"], pred["label"]))
-    
+        # 由于主体个数、载荷以及帆板较为准确因此需要进行对比
+        zt_zh_fb_pred = "{}{}{}".format(zt_hat.max(1, keepdim=True)[1].item(), zh_hat.max(1, keepdim=True)[1].item(), fb_hat.max(1, keepdim=True)[1].item())
+        max_value, max_index = categeo_hat.max(1, keepdim=True)
+        print(max_value)
+        zt_zh_fb_cate = object_infos[max_index.item()]
+        if zt_zh_fb_pred != zt_zh_fb_cate:
+            tensor = categeo_hat.masked_fill(categeo_hat == max_value.view(-1, 1), float('-inf'))
+            tmp_max_value, tmp_max_index = tensor.max(1, keepdim=True)
+            if (tmp_max_value - max_value).item() < 1:
+                max_index = tmp_max_index
+
+        categeo_result = torch.eq(max_index, cate_one_hot.max(1, keepdim=True)[1])
+        categeo_acc = categeo_acc + categeo_result.sum().item()
+        if not categeo_result.item():
+            print("error: ", max_index.item() + 1, cate_one_hot.max(1, keepdim=True)[1].item() + 1)
+        accNum = accNum + (categeo_acc * 0.3 + zt_acc * 0.2 + zh_acc * 0.25 + fb_acc * 0.25) / 4
+    acc = accNum / (len(test_data) * batchSize)
+    log_str = "categeo_acc: %.4f, zt_acc: %.4f, zh_acc: %.4f, fb_acc: %.4f, train acc: %.4f" % (categeo_acc, zt_acc, zh_acc, fb_acc, acc)
+    print(log_str)  
+    return 
+
+
 def test():
     """"""
-    test_data = load_space_object_data(batchSize)
+    test_data = load_test_space_object_data(1)
     net = ResNet().to(device)
-    pass
+    load_net(net)
+    net.eval()
+    result = []
+    for i, (visible_img_plus, sar_img_plus, folder_name) in enumerate(test_data):     
+        visible_img_plus, sar_img_plus = visible_img_plus.to(device), sar_img_plus.to(device)
+        categeo_hat, zt_hat, zh_hat, fb_hat = net(visible_img_plus, sar_img_plus)   
+
+        categeo_value, categeo_index = categeo_hat.max(1, keepdim=True)
+        zt_result = zt_hat.max(1, keepdim=True)[1]
+        zh_result = zh_hat.max(1, keepdim=True)[1]
+        fb_result = fb_hat.max(1, keepdim=True)[1]
+        categeo_index = int(categeo_index.item()) + 1
+        print(categeo_index, zt_result.item(), zh_result.item(), fb_result.item(), categeo_hat)
+        if categeo_value < 5:
+            categeo_index = 0
+        result.append("{}\t{}\t{}\t{}\t{}\n".format(folder_name[0], categeo_index, zt_result.item(), zh_result.item(), fb_result.item()))
+
+    result_path = os.path.join(rootPath, "result-{}.csv".format(datetime.now().strftime("%Y%m%dT%H%M%S")))
+    with open(result_path, "w") as result_file:
+        result_file.writelines(result)
+    return 
 
 if __name__ == "__main__":
     # net = createResNet()
@@ -198,4 +249,5 @@ if __name__ == "__main__":
     # print(ResNet34())
     # print(torchvision.models.resnet50(pretrained=False, num_classes=176))
     train(augmentation=False)
+    # test()
     # verify()

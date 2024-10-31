@@ -10,6 +10,10 @@ import numpy as np
 rootPath = r"D:\Data\spatial_object"
 model_root = r"D:\Data\spatial_object"
 
+object_infos = [
+    "000", "000", "112", "111", "112", "110", "000", "101", "102", "102"
+]
+
 def split_verfy_train():
     """将数据拆分为验证集以及训练集，比例为1：4
         1、读取每个目标类型下的
@@ -79,9 +83,10 @@ class SpaceObjectDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         if self.mode == "test":
-            imagePath = self.imageDatas[idx].replace("\n", "")
-            image = Image.open(os.path.join(rootPath, imagePath))
-            return self.transform(image), imagePath
+            image_folder = self.imageDatas[idx].replace("\n", "")
+            folder_name = image_folder.split("\\")[-1]
+            visible_img_plus, sar_img_plus = self.read_visible_sar_img(image_folder)         
+            return (visible_img_plus, sar_img_plus, folder_name)
         else:
             path_info = self.imageDatas[idx].replace("\n", "")
             image_folder = path_info.split(" ")[0]
@@ -92,24 +97,29 @@ class SpaceObjectDataset(torch.utils.data.Dataset):
             fb_cate = int(object_info.split(" ")[5])
 
             cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot = self.create_one_hot(category, zt_cate, zh_cate, fb_cate)
-            to_tensor = torchvision.transforms.ToTensor()
-            visible_imgs = []
-            # 分别读取sar和可见光
-            for i in range(10):
-                tmp_img_path = os.path.join(image_folder, "{}.jpg".format(i + 1))
-                image = Image.open(tmp_img_path).convert("L")
-                img_tensor = to_tensor(image)
-                visible_imgs.append(img_tensor)
-            visible_img_plus = torch.cat(visible_imgs, dim=0)
-
-            sar_imgs = []
-            for i in range(10, 20):
-                tmp_img_path = os.path.join(image_folder, "{}.jpg".format(i + 1))
-                image = Image.open(tmp_img_path).convert("L")
-                img_tensor = to_tensor(image)
-                sar_imgs.append(img_tensor)
-            sar_img_plus = torch.cat(sar_imgs, dim=0)            
+            visible_img_plus, sar_img_plus = self.read_visible_sar_img(image_folder)
             return (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot)
+        
+    def read_visible_sar_img(self, image_folder):
+        """"""
+        to_tensor = torchvision.transforms.ToTensor()
+        visible_imgs = []
+        # 分别读取sar和可见光
+        for i in range(10):
+            tmp_img_path = os.path.join(image_folder, "{}.jpg".format(i + 1))
+            image = Image.open(tmp_img_path).convert("L")
+            img_tensor = to_tensor(image)
+            visible_imgs.append(img_tensor)
+        visible_img_plus = torch.cat(visible_imgs, dim=0)
+
+        sar_imgs = []
+        for i in range(10, 20):
+            tmp_img_path = os.path.join(image_folder, "{}.jpg".format(i + 1))
+            image = Image.open(tmp_img_path).convert("L")
+            img_tensor = to_tensor(image)
+            sar_imgs.append(img_tensor)
+        sar_img_plus = torch.cat(sar_imgs, dim=0)     
+        return visible_img_plus, sar_img_plus       
 
     def __len__(self):
         return len(self.imageDatas)
@@ -138,11 +148,40 @@ def load_space_object_data(batch_size):
         num_workers=num_workers)
     return train_iter, test_iter
 
+def load_test_space_object_data(batch_size):
+    ''' 加载数据集
+    '''
+    num_workers = 1
+    print("load test data, batch_size", batch_size)
+    test_path = os.path.join(rootPath, "test", "test.txt")
+    test_iter = torch.utils.data.DataLoader(
+        SpaceObjectDataset(test_path, "test"), batch_size, shuffle=False,
+        drop_last=True, num_workers=num_workers)
+    return test_iter
+
+def create_test_file():
+    """生成测试的txt文件"""
+    test_folder = r"D:\Data\spatial_object\test"
+    test_file_list = []
+    # test_list = os.listdir(test_folder)
+    # for test in test_list:
+    #     test_file_path = os.path.join(test_folder, test)
+    #     test_file_list.append("{}\n".format(test_file_path))
+    for i in range(600):
+        test_file_path = os.path.join(test_folder, str(i + 1))
+        test_file_list.append("{}\n".format(test_file_path))
+
+    save_path = os.path.join(test_folder, "test.txt")
+    with open(save_path, "w") as result_file:
+        result_file.writelines(test_file_list)
+
 if __name__ == "__main__":
-    split_verfy_train()
+    # split_verfy_train()
     # train_data, verify_data = load_space_object_data(10)
     # for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(train_data):  
     #     print(i)      
+
+    create_test_file()
 
 
 

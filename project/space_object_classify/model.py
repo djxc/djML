@@ -64,6 +64,28 @@ def createResNet():
     return net
 
 
+class SelfAttention(nn.Module):  
+    def __init__(self, in_channels):  
+        super(SelfAttention, self).__init__()  
+        self.query_conv = nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)  
+        self.key_conv = nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)  
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)  
+        self.gamma = nn.Parameter(torch.zeros(1))  
+  
+    def forward(self, x):  
+        batch_size, width, height = x.size()  
+        query = self.query_conv(x).view(batch_size, -1, width * height).permute(0, 2, 1)  # B x N x C  
+        key = self.key_conv(x).view(batch_size, -1, width * height)  # B x C x N  
+        value = self.value_conv(x).view(batch_size, -1, width * height)  # B x C x N  
+  
+        attention = torch.bmm(query, key)  # B x N x N  
+        attention = F.softmax(attention, dim=-1)  # B x N x N  
+        out = torch.bmm(value, attention.permute(0, 2, 1))  # B x C x N  
+        out = out.view(batch_size, width, height)  # B x C x W x H  
+  
+        out = self.gamma * out + x  
+        return out
+
 class ResNet(nn.Module):
     def __init__(self):
         super(ResNet, self).__init__()
@@ -101,12 +123,15 @@ class ResNet(nn.Module):
         #     *list(self.visible_cnn.children())[:-2]  # 复制ResNet的大部分层，但移除最后的平均池化和全连接层  
         # )  
         # self.sar_fc = nn.Linear(self.sar_cnn[-1][-1].bn2.num_features, 512)  # 假设我们需要将SAR特征映射到512维  
-        self.fc_fuse = nn.Linear(1024, 512)
+        self.attention = SelfAttention(1024)
+        self.se_block = SEBlock(2)
+        self.fc_fuse = nn.Linear(512, 512)
 
-        self.fc1 = nn.Sequential(FlattenLayer(), nn.Linear(512, 10))
-        self.fc2 = nn.Sequential(FlattenLayer(), nn.Linear(512, 2))
-        self.fc3 = nn.Sequential(FlattenLayer(), nn.Linear(512, 2))
-        self.fc4 = nn.Sequential(FlattenLayer(), nn.Linear(512, 3))
+        self.fc1 = nn.Sequential(FlattenLayer(), nn.Linear(1024, 10))
+        self.fc2 = nn.Sequential(FlattenLayer(), nn.Linear(1024, 2))
+        self.fc3 = nn.Sequential(FlattenLayer(), nn.Linear(1024, 2))
+        self.fc4 = nn.Sequential(FlattenLayer(), nn.Linear(1024, 3))
+
 
     def forward(self, visible_images, sar_images):
         out = self.layer1(visible_images)
@@ -131,10 +156,12 @@ class ResNet(nn.Module):
         # sar_features = self.extract_features(self.sar_cnn, sar_images)  
         # sar_features = self.sar_fc(sar_features.view(sar_features.size(0), -1))  # 展平并映射到512维  
           
-        # 融合特征  
-        sar = sar.view(out.size(0), -1)
-        out = out.view(out.size(0), -1)
+        # 融合特征,这里将sar和out作为不同的波段进行融合  
+        sar = sar.permute(0, 3, 2, 1) # sar.view(out.size(0), -1)
+        out = out.permute(0, 3, 2, 1) # out.view(out.size(0), -1)
         fused_features = torch.cat((out, sar), dim=1)  
+        # fused_features = self.attention(fused_features)
+        fused_features = self.se_block(fused_features) 
         fused_features = F.relu(self.fc_fuse(fused_features))  
 
         out1 = self.fc1(fused_features)
@@ -149,5 +176,129 @@ class ResNet(nn.Module):
         features = F.adaptive_avg_pool2d(features, (1, 1))  
         features = features.view(features.size(0), -1)  
         return features  
+    
+  
+class SEBlock(nn.Module):  
+    def __init__(self, channel, reduction=16):  
+        super(SEBlock, self).__init__()  
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)  
+        self.fc = nn.Sequential(  
+            nn.Linear(channel, channel // reduction, bias=False),  
+            nn.ReLU(inplace=True),  
+            nn.Linear(channel // reduction, channel, bias=False),  
+            nn.Sigmoid()  
+        )  
+  
+    def forward(self, x):  
+        """通道注意力机制
+            1、输入的图像是 [batch_size, channel, width, heigh]
+            2、首先经过自适应平均池化层，输出是一维数据，然后reshape到batch_size x channel
+        """
+        b, c, _, _ = x.size()  
+        y = self.avg_pool(x).view(b, c)  
+        y = self.fc(y).view(b, c, 1, 1)  
+        return x * y.expand_as(x)  
+  
+class SEBottleneck(nn.Module):  
+    expansion = 4  
+  
+    def __init__(self, in_channels, out_channels, stride=1, downsample=None, reduction=16):  
+        super(SEBottleneck, self).__init__()  
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False)  
+        self.bn1 = nn.BatchNorm2d(out_channels)  
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride,  
+                               padding=1, bias=False)  
+        self.bn2 = nn.BatchNorm2d(out_channels)  
+        self.conv3 = nn.Conv2d(out_channels, out_channels * self.expansion, kernel_size=1, bias=False)  
+        self.bn3 = nn.BatchNorm2d(out_channels * self.expansion)  
+        self.relu = nn.ReLU(inplace=True)  
+        self.downsample = downsample  
+        self.se = SEBlock(out_channels * self.expansion, reduction=reduction)  
+  
+    def forward(self, x):  
+        identity = x  
+  
+        out = self.conv1(x)  
+        out = self.bn1(out)  
+        out = self.relu(out)  
+  
+        out = self.conv2(out)  
+        out = self.bn2(out)  
+        out = self.relu(out)  
+  
+        out = self.conv3(out)  
+        out = self.bn3(out)  
+  
+        if self.downsample is not None:  
+            identity = self.downsample(x)  
+  
+        out += identity  
+        out = self.relu(out)  
+        out = self.se(out)  
+  
+        return out  
+  
+class SEResNet(nn.Module):  
+    def __init__(self, block, layers, num_classes=1000, reduction=16):  
+        super(SEResNet, self).__init__()  
+        self.in_channels = 64  
+        self.conv1 = nn.Conv2d(10, 64, kernel_size=7, stride=2, padding=3, bias=False)  
+        self.bn1 = nn.BatchNorm2d(64)  
+        self.relu = nn.ReLU(inplace=True)  
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)  
+        self.layer1 = self._make_layer(block, 64, layers[0], reduction=reduction)  
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, reduction=reduction)  
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2, reduction=reduction)  
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2, reduction=reduction)  
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))  
+        self.fc_cate = nn.Linear(512 * block.expansion, num_classes)  
+        self.fc_ = nn.Linear(512 * block.expansion, num_classes)  
+        self.fc_cate = nn.Linear(512 * block.expansion, num_classes)  
+        self.fc_cate = nn.Linear(512 * block.expansion, num_classes)  
+  
+        for m in self.modules():  
+            if isinstance(m, nn.Conv2d):  
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')  
+            elif isinstance(m, nn.BatchNorm2d):  
+                nn.init.constant_(m.weight, 1)  
+                nn.init.constant_(m.bias, 0)  
+  
+    def _make_layer(self, block, out_channels, blocks, stride=1, reduction=16):  
+        downsample = None  
+        if stride != 1 or self.in_channels != out_channels * block.expansion:  
+            downsample = nn.Sequential(  
+                nn.Conv2d(self.in_channels, out_channels * block.expansion, kernel_size=1, stride=stride, bias=False),  
+                nn.BatchNorm2d(out_channels * block.expansion),  
+            )  
+  
+        layers = []  
+        layers.append(block(self.in_channels, out_channels, stride, downsample, reduction=reduction))  
+        self.in_channels = out_channels * block.expansion  
+        for _ in range(1, blocks):  
+            layers.append(block(self.in_channels, out_channels, reduction=reduction))  
+  
+        return nn.Sequential(*layers)  
+  
+    def forward(self, x):  
+        x = self.conv1(x)  
+        x = self.bn1(x)  
+        x = self.relu(x)  
+        x = self.maxpool(x)  
+  
+        x = self.layer1(x)  
+        x = self.layer2(x)  
+        x = self.layer3(x)  
+        x = self.layer4(x)  
+  
+        x = self.avgpool(x)  
+        x = torch.flatten(x, 1)  
+        x = self.fc(x)  
+  
+        return x  
+  
+# Example usage  
+def seresnet18():  
+    return SEResNet(SEBottleneck, [2, 2, 2, 2])  
+
     
 
