@@ -6,6 +6,7 @@ import torchvision
 from torchvision import transforms
 from PIL import Image
 import numpy as np
+import torchvision.transforms.functional
 
 rootPath = r"D:\Data\spatial_object"
 model_root = r"D:\Data\spatial_object"
@@ -102,23 +103,35 @@ class SpaceObjectDataset(torch.utils.data.Dataset):
         
     def read_visible_sar_img(self, image_folder):
         """"""
+        # 增加图像旋转以及顺序倒换
+        rotate_angle = random.randint(-90, 90)
+        order_freq = random.randint(0, 10)
         to_tensor = torchvision.transforms.ToTensor()
+        resize = torchvision.transforms.Resize((729, 929))
         visible_imgs = []
         # 分别读取sar和可见光
+
+        sar_imgs = []
         for i in range(10):
             tmp_img_path = os.path.join(image_folder, "{}.jpg".format(i + 1))
             image = Image.open(tmp_img_path).convert("L")
             img_tensor = to_tensor(image)
-            visible_imgs.append(img_tensor)
-        visible_img_plus = torch.cat(visible_imgs, dim=0)
+            sar_imgs.append(img_tensor)
+        if order_freq > 8:
+            sar_imgs.reverse()
+        sar_img_plus = torch.cat(sar_imgs, dim=0)     
+        sar_img_plus = torchvision.transforms.functional.rotate(sar_img_plus, rotate_angle)
 
-        sar_imgs = []
         for i in range(10, 20):
             tmp_img_path = os.path.join(image_folder, "{}.jpg".format(i + 1))
             image = Image.open(tmp_img_path).convert("L")
             img_tensor = to_tensor(image)
-            sar_imgs.append(img_tensor)
-        sar_img_plus = torch.cat(sar_imgs, dim=0)     
+            visible_imgs.append(img_tensor)
+        if order_freq > 8:
+            visible_imgs.reverse()
+        visible_img_plus = torch.cat(visible_imgs, dim=0)
+        visible_img_plus = resize(visible_img_plus)
+        visible_img_plus = torchvision.transforms.functional.rotate(visible_img_plus, rotate_angle)
         return visible_img_plus, sar_img_plus       
 
     def __len__(self):

@@ -85,6 +85,27 @@ class SelfAttention(nn.Module):
   
         out = self.gamma * out + x  
         return out
+    
+class SEBlock(nn.Module):  
+    def __init__(self, channel, reduction=16):  
+        super(SEBlock, self).__init__()  
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)  
+        self.fc = nn.Sequential(  
+            nn.Linear(channel, channel // reduction, bias=False),  
+            nn.ReLU(inplace=True),  
+            nn.Linear(channel // reduction, channel, bias=False),  
+            nn.Sigmoid()  
+        )  
+  
+    def forward(self, x):  
+        """通道注意力机制
+            1、输入的图像是 [batch_size, channel, width, heigh]
+            2、首先经过自适应平均池化层，输出是一维数据，然后reshape到batch_size x channel
+        """
+        b, c, _, _ = x.size()  
+        y = self.avg_pool(x).view(b, c)  
+        y = self.fc(y).view(b, c, 1, 1)  
+        return x * y.expand_as(x)  
 
 class ResNet(nn.Module):
     def __init__(self):
@@ -124,13 +145,13 @@ class ResNet(nn.Module):
         # )  
         # self.sar_fc = nn.Linear(self.sar_cnn[-1][-1].bn2.num_features, 512)  # 假设我们需要将SAR特征映射到512维  
         self.attention = SelfAttention(1024)
-        self.se_block = SEBlock(2)
-        self.fc_fuse = nn.Linear(512, 512)
+        self.se_block = SEBlock(1024)
+        self.fc_fuse = nn.Linear(1024, 512)
 
-        self.fc1 = nn.Sequential(FlattenLayer(), nn.Linear(1024, 10))
-        self.fc2 = nn.Sequential(FlattenLayer(), nn.Linear(1024, 2))
-        self.fc3 = nn.Sequential(FlattenLayer(), nn.Linear(1024, 2))
-        self.fc4 = nn.Sequential(FlattenLayer(), nn.Linear(1024, 3))
+        self.fc1 = nn.Sequential(FlattenLayer(), nn.Linear(512, 10))
+        self.fc2 = nn.Sequential(FlattenLayer(), nn.Linear(512, 2))
+        self.fc3 = nn.Sequential(FlattenLayer(), nn.Linear(512, 2))
+        self.fc4 = nn.Sequential(FlattenLayer(), nn.Linear(512, 3))
 
 
     def forward(self, visible_images, sar_images):
@@ -139,14 +160,14 @@ class ResNet(nn.Module):
         out = self.resnet_block2(out)
         out = self.resnet_block3(out)
         out = self.resnet_block4(out)
-        out = self.global_avg_pool(out)
+        # out = self.global_avg_pool(out)
 
         sar = self.layer1_sar(sar_images)
         sar = self.resnet_block1_sar(sar)
         sar = self.resnet_block2_sar(sar)
         sar = self.resnet_block3_sar(sar)
         sar = self.resnet_block4_sar(sar)
-        sar = self.global_avg_pool_sar(sar)
+        # sar = self.global_avg_pool_sar(sar)
 
         # # 分别提取可见光以及sar特征
         # # 提取可见光图像特征  
@@ -157,11 +178,13 @@ class ResNet(nn.Module):
         # sar_features = self.sar_fc(sar_features.view(sar_features.size(0), -1))  # 展平并映射到512维  
           
         # 融合特征,这里将sar和out作为不同的波段进行融合  
-        sar = sar.permute(0, 3, 2, 1) # sar.view(out.size(0), -1)
-        out = out.permute(0, 3, 2, 1) # out.view(out.size(0), -1)
+        # sar = sar.permute(0, 3, 2, 1) # sar.view(out.size(0), -1)
+        # out = out.permute(0, 3, 2, 1) # out.view(out.size(0), -1)
         fused_features = torch.cat((out, sar), dim=1)  
         # fused_features = self.attention(fused_features)
         fused_features = self.se_block(fused_features) 
+        fused_features = self.global_avg_pool(fused_features) 
+        fused_features = fused_features.view(out.size(0), -1)
         fused_features = F.relu(self.fc_fuse(fused_features))  
 
         out1 = self.fc1(fused_features)
@@ -177,27 +200,7 @@ class ResNet(nn.Module):
         features = features.view(features.size(0), -1)  
         return features  
     
-  
-class SEBlock(nn.Module):  
-    def __init__(self, channel, reduction=16):  
-        super(SEBlock, self).__init__()  
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)  
-        self.fc = nn.Sequential(  
-            nn.Linear(channel, channel // reduction, bias=False),  
-            nn.ReLU(inplace=True),  
-            nn.Linear(channel // reduction, channel, bias=False),  
-            nn.Sigmoid()  
-        )  
-  
-    def forward(self, x):  
-        """通道注意力机制
-            1、输入的图像是 [batch_size, channel, width, heigh]
-            2、首先经过自适应平均池化层，输出是一维数据，然后reshape到batch_size x channel
-        """
-        b, c, _, _ = x.size()  
-        y = self.avg_pool(x).view(b, c)  
-        y = self.fc(y).view(b, c, 1, 1)  
-        return x * y.expand_as(x)  
+
   
 class SEBottleneck(nn.Module):  
     expansion = 4  
