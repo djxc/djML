@@ -11,7 +11,7 @@ from data import load_space_object_data, load_test_space_object_data, rootPath, 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 resume = True
-batchSize = 8
+batchSize = 4
 learing_rate = 0.01
 num_epochs = 300
 model_name = "resnet-se"
@@ -35,9 +35,9 @@ def train(augmentation=False):
     train_data, test_data = load_space_object_data(batchSize)
     best_acc = 0
     net = ResNet().to(device)
-    
+    load_net(net)
     trainer = torch.optim.SGD(net.parameters(), lr=learing_rate, weight_decay=1e-3)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(trainer, T_max=10, eta_min=0, last_epoch=-1)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(trainer, T_max=20, eta_min=0, last_epoch=-1)
     loss = torch.nn.CrossEntropyLoss()    
 
     log_file = open(r"{}\train_log_{}_pre.txt".format(model_root, model_name), "a+")
@@ -68,10 +68,12 @@ def train(augmentation=False):
             trainer.step()
             loss_total = loss_total + l
 
-            if(i % 10 == 0):
-                print(datetime.now(), "learning_rate:", scheduler.get_last_lr()[0], " ; loss:{}".format(loss_total / ((i + 1) * batchSize)))
+            if(i % 30 == 0):
+                # print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "learning_rate:%.4f; loss:%.6f" % (scheduler.get_last_lr()[0], loss_total / ((i + 1) * batchSize)))
+                print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), " loss:%.6f" % (loss_total / ((i + 1) * batchSize)))
+
         endTime = time.time()
-        scheduler.step()       
+        # scheduler.step()       
         acc = predictNet(net, test_data, log_file)
         if acc > best_acc:
             best_acc = acc

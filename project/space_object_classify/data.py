@@ -149,7 +149,7 @@ class SpaceObjectDataset(torch.utils.data.Dataset):
 def load_space_object_data(batch_size):
     ''' 加载数据集
     '''
-    num_workers = 4
+    num_workers = int(batch_size * 1.5)
     print("load train data, batch_size", batch_size)
     train_path = os.path.join(rootPath, "train", "train.txt")
     train_iter = torch.utils.data.DataLoader(
