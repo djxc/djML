@@ -142,7 +142,6 @@ def predictNet(net, test_data, log_file):
         预测
     '''
     startTime = time.time()
-    accNum = 0
     net.eval()
     categeo_acc, zt_acc, zh_acc, fb_acc = 0, 0, 0, 0
     test_data_size = (len(test_data) * batchSize)
@@ -162,10 +161,9 @@ def predictNet(net, test_data, log_file):
         zt_acc = zt_acc + zt_result.sum().item()
         zh_acc = zh_acc + zh_result.sum().item()
         fb_acc = fb_acc + fb_result.sum().item()
-        accNum = accNum + (categeo_acc * 0.3 + zt_acc * 0.2 + zh_acc * 0.25 + fb_acc * 0.25) / batchSize
     use_time = time.time() - startTime
 
-    acc = accNum / test_data_size
+    acc = categeo_acc/test_data_size * 0.3 + zt_acc/test_data_size * 0.2 + zh_acc/test_data_size * 0.25 + fb_acc/test_data_size * 0.25
     log_str = "categeo_acc: %.4f, zt_acc: %.4f, zh_acc: %.4f, fb_acc: %.4f, train acc: %.4f, use time:%.2fs" % (categeo_acc/test_data_size, 
                                                                                                                 zt_acc/test_data_size, 
                                                                                                                 zh_acc/test_data_size, 
