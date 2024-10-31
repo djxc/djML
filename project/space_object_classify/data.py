@@ -47,6 +47,44 @@ def split_verfy_train():
     with open(verify_file_path, "w") as verify_file:
         verify_file.writelines(verify_list)
 
+def split_fold_data():
+    """k折交叉验证"""
+    workspace = r"D:\Data\spatial_object\train"
+    train_folds = [[], [], [], [], []]
+    verify_folds = [[], [], [], [], []]
+    
+    for i in range(10):
+        folder_name = i + 1
+        object_folder = os.path.join(workspace, str(folder_name))
+        object_list_files = os.path.join(object_folder, "{}.txt".format(folder_name))
+        with open(object_list_files) as object_file:
+            object_list = object_file.readlines()
+            random.shuffle(object_list)
+            for i in range(5):
+                sub_train_fold = train_folds[i]
+                sub_verify_fold = verify_folds[i]
+                tmp_verify_list = object_list[i * 10: (i + 1) *10]
+                tmp_train_list = object_list[(i + 1) * 10:]
+                if i > 0:
+                    tmp_train_list2 = object_list[: i * 10]
+                    tmp_train_list.extend(tmp_train_list2)
+                for tmp_verify in tmp_verify_list:
+                    if tmp_verify[-1] != "\n":
+                        tmp_verify = tmp_verify + "\n"
+                    sub_verify_fold.append("{}\\{}".format(object_folder, tmp_verify))
+                for tmp_train in tmp_train_list:
+                    if tmp_train[-1] != "\n":
+                        tmp_train = tmp_train + "\n"
+                    sub_train_fold.append("{}\\{}".format(object_folder, tmp_train))
+    for i in range(5):        
+        train_file_path = os.path.join(workspace, "train_{}.txt".format(i))
+        verify_file_path = os.path.join(workspace, "verify_{}.txt".format(i))
+        with open(train_file_path, "w") as train_file:
+            train_file.writelines(train_folds[i])
+
+        with open(verify_file_path, "w") as verify_file:
+            verify_file.writelines(verify_folds[i])
+
 class SpaceObjectDataset(torch.utils.data.Dataset):
     """一个用于加载空间目标分类数据集的自定义数据集。
         1、帆板数类别（0， 1， 2）；载荷数量类别（0， 1）；主体数量类别（0， 1）；个体类别（1-10）
@@ -194,7 +232,8 @@ if __name__ == "__main__":
     # for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(train_data):  
     #     print(i)      
 
-    create_test_file()
+    # create_test_file()
+    split_fold_data()
 
 
 
