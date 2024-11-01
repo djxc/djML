@@ -235,8 +235,8 @@ if __name__ == "__main__":
     # for i, (visible_img_plus, sar_img_plus, cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot) in enumerate(train_data):  
     #     print(i)      
 
-    # create_test_file()
-    split_fold_data()
+    create_test_file()
+    # split_fold_data()
 
 
 

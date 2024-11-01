@@ -11,7 +11,7 @@ from data import load_space_object_data, load_test_space_object_data, rootPath, 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 resume = True
-batchSize = 8
+batchSize = 4
 learing_rate = 0.01
 num_epochs = 100
 model_name = "resnet-se"
@@ -91,7 +91,7 @@ def train(fold):
 
 def load_net(net):
     """加载模型的参数"""
-    best_model_path = "{}\\best_model2.pth".format(model_path)
+    best_model_path = "{}\\best_model_fold3.pth".format(model_path)
     if os.path.exists(best_model_path):
         print("加载模型。。。")
         if device.type == "cpu":
@@ -244,12 +244,45 @@ def test():
         result_file.writelines(result)
     return 
 
+def merge_result():
+    """分别读取多个结果，选取结果众数作为最终的结果"""
+    import statistics
+    with open(r"D:\Data\spatial_object\result-20241102T000015.csv") as result1:
+        result1_list = result1.readlines()
+    
+    with open(r"D:\Data\spatial_object\result-20241102T000141.csv") as result2:
+        result2_list = result2.readlines()
+
+    with open(r"D:\Data\spatial_object\result-20241102T000345.csv") as result3:
+        result3_list = result3.readlines()
+    
+    with open(r"D:\Data\spatial_object\result-20241102T000544.csv") as result4:
+        result4_list = result4.readlines()
+    
+    final_result = []
+    for i, result in enumerate(result1_list):
+        r_1_infos = result.replace("\n", "").split("\t")
+        r_2_infos = result2_list[i].replace("\n", "").split("\t")
+        r_3_infos = result3_list[i].replace("\n", "").split("\t")
+        r_4_infos = result4_list[i].replace("\n", "").split("\t")
+        folder_name = r_1_infos[0]
+        ca = statistics.mode([int(r_1_infos[1]), int(r_2_infos[1]), int(r_3_infos[1]), int(r_4_infos[1])])
+        zt = statistics.mode([int(r_1_infos[2]), int(r_2_infos[2]), int(r_3_infos[2]), int(r_4_infos[2])])
+        zh = statistics.mode([int(r_1_infos[3]), int(r_2_infos[3]), int(r_3_infos[3]), int(r_4_infos[3])])
+        fb = statistics.mode([int(r_1_infos[4]), int(r_2_infos[4]), int(r_3_infos[4]), int(r_4_infos[4])])
+        final_result.append("{}\t{}\t{}\t{}\t{}\n".format(folder_name, ca, zt, zh, fb))
+
+    result_path = os.path.join(rootPath, "result-{}.csv".format(datetime.now().strftime("%Y%m%dT%H%M%S")))
+    with open(result_path, "w") as result_file:
+        result_file.writelines(final_result)
+
 if __name__ == "__main__":
     # net = createResNet()
     # print(net)
     # print(ResNet34())
     # print(torchvision.models.resnet50(pretrained=False, num_classes=176))
-    for i in range(5):
-        train(i)
+    # for i in range(2, 5):
+    #     train(i)
     # test()
     # verify()
+    merge_result()
