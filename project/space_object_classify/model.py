@@ -108,7 +108,7 @@ class SEBlock(nn.Module):
         return x * y.expand_as(x)  
 
 class ResNet(nn.Module):
-    def __init__(self):
+    def __init__(self, dropout_p=0.5):
         super(ResNet, self).__init__()
         self.layer1 = nn.Sequential(
             nn.Conv2d(10, 64, kernel_size=7, stride=2, padding=3),
@@ -148,6 +148,8 @@ class ResNet(nn.Module):
         self.se_block = SEBlock(1024)
         self.fc_fuse = nn.Linear(1024, 512)
 
+        self.dropout = nn.Dropout(p=dropout_p)
+
         self.fc1 = nn.Sequential(FlattenLayer(), nn.Linear(512, 10))
         self.fc2 = nn.Sequential(FlattenLayer(), nn.Linear(512, 2))
         self.fc3 = nn.Sequential(FlattenLayer(), nn.Linear(512, 2))
@@ -185,6 +187,8 @@ class ResNet(nn.Module):
         fused_features = self.se_block(fused_features) 
         fused_features = self.global_avg_pool(fused_features) 
         fused_features = fused_features.view(out.size(0), -1)
+        fused_features = self.dropout(fused_features)
+
         fused_features = F.relu(self.fc_fuse(fused_features))  
 
         out1 = self.fc1(fused_features)

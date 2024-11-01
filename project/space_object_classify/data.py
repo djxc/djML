@@ -155,21 +155,24 @@ class SpaceObjectDataset(torch.utils.data.Dataset):
             image = Image.open(tmp_img_path).convert("L")
             img_tensor = to_tensor(image)
             sar_imgs.append(img_tensor)
-        if order_freq > 8:
+        
+        if self.mode == "train" and order_freq > 8:
             sar_imgs.reverse()
-        sar_img_plus = torch.cat(sar_imgs, dim=0)     
-        sar_img_plus = torchvision.transforms.functional.rotate(sar_img_plus, rotate_angle)
+        sar_img_plus = torch.cat(sar_imgs, dim=0)
+        if self.mode == "train":     
+            sar_img_plus = torchvision.transforms.functional.rotate(sar_img_plus, rotate_angle)
 
         for i in range(10, 20):
             tmp_img_path = os.path.join(image_folder, "{}.jpg".format(i + 1))
             image = Image.open(tmp_img_path).convert("L")
             img_tensor = to_tensor(image)
             visible_imgs.append(img_tensor)
-        if order_freq > 8:
+        if self.mode == "train" and order_freq > 8:
             visible_imgs.reverse()
-        visible_img_plus = torch.cat(visible_imgs, dim=0)
+        visible_img_plus = torch.cat(visible_imgs, dim=0)        
         visible_img_plus = resize(visible_img_plus)
-        visible_img_plus = torchvision.transforms.functional.rotate(visible_img_plus, rotate_angle)
+        if self.mode == "train": 
+            visible_img_plus = torchvision.transforms.functional.rotate(visible_img_plus, rotate_angle)
         return visible_img_plus, sar_img_plus       
 
     def __len__(self):
@@ -184,16 +187,16 @@ class SpaceObjectDataset(torch.utils.data.Dataset):
         return cate_one_hot, zt_one_hot, zh_one_hot, fb_one_hot
 
 
-def load_space_object_data(batch_size):
+def load_space_object_data(batch_size, fold):
     ''' 加载数据集
     '''
     num_workers = int(batch_size * 1.5)
     print("load train data, batch_size", batch_size)
-    train_path = os.path.join(rootPath, "train", "train.txt")
+    train_path = os.path.join(rootPath, "train", "train_{}.txt".format(fold))
     train_iter = torch.utils.data.DataLoader(
         SpaceObjectDataset(train_path, "train"), batch_size, shuffle=True,
         drop_last=True, num_workers=num_workers)
-    verify_path = os.path.join(rootPath, "train", "verify.txt")
+    verify_path = os.path.join(rootPath, "train", "verify_{}.txt".format(fold))
     test_iter = torch.utils.data.DataLoader(
         SpaceObjectDataset(verify_path, "valid"), batch_size, drop_last=True,
         num_workers=num_workers)

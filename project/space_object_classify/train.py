@@ -12,8 +12,8 @@ from data import load_space_object_data, load_test_space_object_data, rootPath, 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 resume = True
 batchSize = 4
-learing_rate = 0.01
-num_epochs = 300
+learing_rate = 0.001
+num_epochs = 100
 model_name = "resnet-se"
 
 log = ["{} batchSize: {}\n".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), batchSize)]
@@ -22,7 +22,7 @@ model_path = r"{}\{}".format(model_root, model_name)
 if not os.path.exists(model_path):
     os.mkdir(model_path)
 
-def train(augmentation=False):
+def train(fold):
     '''训练
         1、首先用restNet进行训练, batchSize=6学习率0.01，训练50轮，测试集精度0.88
             restNet训练, batchSize=12学习率0.01，训练200轮，测试集精度0.878
@@ -32,7 +32,8 @@ def train(augmentation=False):
         4、增大batch_size会使学习速度下降，但可以提高模型的泛化性
         5、利用训练好的模型进行微调
     '''
-    train_data, test_data = load_space_object_data(batchSize)
+    print("start {} fold train".format(fold + 1))
+    train_data, test_data = load_space_object_data(batchSize, fold)
     best_acc = 0
     net = ResNet().to(device)
     load_net(net)
@@ -40,7 +41,7 @@ def train(augmentation=False):
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(trainer, T_max=20, eta_min=0, last_epoch=-1)
     loss = torch.nn.CrossEntropyLoss()    
 
-    log_file = open(r"{}\train_log_{}_pre.txt".format(model_root, model_name), "a+")
+    log_file = open(r"{}\train_log_{}_pre_fold{}.txt".format(model_root, model_name, fold), "a+")
     data_size = len(train_data) * batchSize
     for epoch in range(num_epochs): 
         startTime = time.time()
@@ -77,10 +78,10 @@ def train(augmentation=False):
         acc = predictNet(net, test_data, log_file)
         if acc > best_acc:
             best_acc = acc
-            save_net(net, "{}\\best_model.pth".format(model_path))
+            save_net(net, "{}\\best_model_fold{}.pth".format(model_path, fold))
         # 每10轮保存一次结果
         if epoch > 0 and (epoch + 1) % 10 == 0:
-            save_net(net, "{}\\{}_epoch.pth".format(model_path, epoch))
+            save_net(net, "{}\\{}_epoch_fold{}.pth".format(model_path, epoch, fold))
         log_info = 'epoch %d, loss %.4f, use time:%.2fs\n' % (epoch + 1, loss_total / data_size, endTime - startTime)
         log_file.write(log_info) 
         log.append(log_info)        
@@ -90,7 +91,7 @@ def train(augmentation=False):
 
 def load_net(net):
     """加载模型的参数"""
-    best_model_path = "{}\\best_model1.pth".format(model_path)
+    best_model_path = "{}\\best_model2.pth".format(model_path)
     if os.path.exists(best_model_path):
         print("加载模型。。。")
         if device.type == "cpu":
@@ -248,6 +249,7 @@ if __name__ == "__main__":
     # print(net)
     # print(ResNet34())
     # print(torchvision.models.resnet50(pretrained=False, num_classes=176))
-    train(augmentation=False)
+    for i in range(5):
+        train(i)
     # test()
     # verify()
