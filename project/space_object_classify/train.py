@@ -11,8 +11,8 @@ from data import load_space_object_data, load_test_space_object_data, rootPath, 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 resume = True
-batchSize = 4
-learing_rate = 0.001
+batchSize = 8
+learing_rate = 0.01
 num_epochs = 100
 model_name = "resnet-se"
 
@@ -36,7 +36,7 @@ def train(fold):
     train_data, test_data = load_space_object_data(batchSize, fold)
     best_acc = 0
     net = ResNet().to(device)
-    load_net(net)
+    # load_net(net)
     trainer = torch.optim.SGD(net.parameters(), lr=learing_rate, weight_decay=1e-3)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(trainer, T_max=20, eta_min=0, last_epoch=-1)
     loss = torch.nn.CrossEntropyLoss()    
