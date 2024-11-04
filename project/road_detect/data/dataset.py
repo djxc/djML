@@ -1,9 +1,9 @@
 from torch.utils.data import Dataset
+import torchvision
 import PIL.Image as Image
-import os
 import numpy as np
 import random
-import cv2
+import torchvision.transforms.functional
 
 
 
@@ -28,8 +28,8 @@ class RoadDataset(Dataset):
             if self.train_mode == 'train':
                 # 在训练阶段增加随机旋转，将图像与标注都进行旋转
                 angle = random.randint(0, 90)
-                img_x = self.rotateIMG(img_x, angle, x_path)
-                img_y = self.rotateIMG(img_y, angle, y_path)
+                img_x = self.rotateIMG(img_x, angle)
+                img_y = self.rotateIMG(img_y, angle)
 
         else:
             x_path = self.imgs[index]
@@ -68,11 +68,5 @@ class RoadDataset(Dataset):
         return img_paths, label_paths
 
 
-    def rotateIMG(self, img, angle, imgName):
-        if len(img.shape) == 2:
-            rows, cols = img.shape
-        elif len(img.shape) == 3:
-            rows, cols, _ = img.shape
-        rotate = cv2.getRotationMatrix2D((rows * 0.5, cols * 0.5), angle, 1)
-        newIMG = cv2.warpAffine(img, rotate, (cols, rows))
-        return newIMG
+    def rotateIMG(self, img, angle):
+        return torchvision.transforms.functional.rotate(img, angle)
