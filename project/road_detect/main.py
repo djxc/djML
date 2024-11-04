@@ -47,7 +47,7 @@ def train(args):
                               transform=x_transforms, target_transform=y_transforms)    
     dataloaders = DataLoader(liver_dataset,
                              batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
-    num_epochs = 20
+    num_epochs = 100
     dataNum = len(liver_dataset)
     for epoch in range(num_epochs):
         epoch_loss = 0
@@ -171,14 +171,13 @@ if __name__ == '__main__':
     # parse.add_argument("--ckpt", type=str,
     #                    help="the path of model pre-train weight file", default=None, required=False)
     args = parse.parse_args()
-    args.action = "verify"
+    args.action = "train"
     args.batch_size = 4
-    args.ckpt = r"D:\Data\MLData\rs_road\model\weights_unet_road_19_0.00229.pth"
+    args.ckpt = None # r"D:\Data\MLData\rs_road\model\weights_unet_road_19_0.00229.pth"
     print(args.action)
     # python main.py test --ckpt weight_19.pth#
     if args.action == "train":
         train(args)
-        print('train')
     elif args.action == "verify":
         verify(args)
     elif args.action == "test":

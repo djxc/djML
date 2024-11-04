@@ -1,9 +1,8 @@
 from torch.utils.data import Dataset
 import PIL.Image as Image
-import os
+import torchvision
 import numpy as np
 import random
-import cv2
 
 
 
@@ -21,20 +20,16 @@ class RoadDataset(Dataset):
         if self.train_mode == "train" or self.train_mode == "verify":
             x_path = self.imgs[index]
             y_path = self.labels[index]
-            # unet定义的图像大小为512*512所以必须输入的图像数据为512*512
-            # 自己的数据为1000*1000，因此需要将其切割下
             img_x = Image.open(x_path)
             img_y = Image.open(y_path)
             if self.train_mode == 'train':
                 # 在训练阶段增加随机旋转，将图像与标注都进行旋转
                 angle = random.randint(0, 90)
-                img_x = self.rotateIMG(img_x, angle, x_path)
-                img_y = self.rotateIMG(img_y, angle, y_path)
+                img_x = self.rotateIMG(img_x, angle)
+                img_y = self.rotateIMG(img_y, angle)
 
         else:
             x_path = self.imgs[index]
-            # unet定义的图像大小为512*512所以必须输入的图像数据为512*512
-            # 自己的数据为1000*1000，因此需要将其切割下
             img_x = Image.open(x_path)
             img_y = np.zeros([512, 512])
 
@@ -68,11 +63,6 @@ class RoadDataset(Dataset):
         return img_paths, label_paths
 
 
-    def rotateIMG(self, img, angle, imgName):
-        if len(img.shape) == 2:
-            rows, cols = img.shape
-        elif len(img.shape) == 3:
-            rows, cols, _ = img.shape
-        rotate = cv2.getRotationMatrix2D((rows * 0.5, cols * 0.5), angle, 1)
-        newIMG = cv2.warpAffine(img, rotate, (cols, rows))
-        return newIMG
+    def rotateIMG(self, img, angle):
+        return torchvision.transforms.functional.rotate(img, angle)
+        
