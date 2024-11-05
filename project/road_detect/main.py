@@ -79,7 +79,8 @@ def verify(args, model=None):
     batch_size = 1 #args.batch_size                    # 每次计算的batch大小
     if model is None:
         model = Unet(3, 1)
-        model.load_state_dict(torch.load(args.ckpt, map_location=lambda storage, loc: storage.cuda(0)))        # 加载训练数据权重
+        if args.ckpt and os.path.exists(args.ckpt):
+            model.load_state_dict(torch.load(args.ckpt, map_location=lambda storage, loc: storage.cuda(0)))        # 加载训练数据权重
     
     liver_dataset = RoadDataset(verify_file, train_mode="verify",
                               transform=y_transforms, target_transform=y_transforms)    
@@ -93,9 +94,7 @@ def verify(args, model=None):
             for x, y_hat, x_path in dataloaders:
                 x = x.to(device)
                 y_hat = y_hat.to(device)
-                y = model(x)
-                # img_y = predb_to_mask(y[0][0])
-                # result = np.where(img_y > 0.001, 1, 0).astype(np.uint8)           
+                y = model(x)      
                 miou = calculate_miou(y, y_hat)
                 miou_list.append(miou.item())               
                 pbar.set_postfix(**{'miou': np.array(miou_list).mean()})
@@ -104,21 +103,22 @@ def verify(args, model=None):
     print("miou: ", miou)
     return miou
 
-def calculate_miou(predictions, targets):
+def calculate_miou(predictions: torch.tensor, targets: torch.tensor):
     """计算平均交并比"""
     predictions = predictions.reshape(-1)
-    targets = targets.float().view(-1)
-    # 计算交集
-    intersection = (predictions * targets).sum()
- 
-    # 计算并集
-    total = (predictions + targets).sum() - intersection
- 
-    # 计算IOU
-    iou = (intersection + 1e-10) / (total + 1e-10)
- 
-    # 计算mIOU
-    mIOU = iou.mean()
+    targets = targets.view(-1)
+    
+    # TP表示被正确识别为道路区域的像元数，
+    tp = (predictions * targets).sum()
+    # FP表示实际非道路但识别为道路的像元数，
+    fp = torch.where((predictions - targets) > 0, 1, 0).sum()
+    # TN表示被正确识别的非道路区域像元），
+    tn = (predictions + targets).sum()
+    # FN表示实际是道路但未被识别为道路的像元数
+    fn = torch.where((targets - predictions) > 0, 1, 0).sum()
+
+    # mIOU=0.5×TP/(TP+FP+FN)+0.5×TN/(TN+FP+FN), 
+    mIOU = 0.5 * tp / (tp + fp + fn) + 0.5 * tn / (tn + fp + fn)
  
     return mIOU
 
