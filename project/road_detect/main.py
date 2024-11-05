@@ -14,7 +14,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from model.unet import Unet
+from model.unet import Unet, UNet1
 from data.dataset import RoadDataset
 from config import WORKSPACE, MODEL_FOLDER, train_file, verify_file, result_folder, test_file, test_result_folder
 
@@ -36,7 +36,7 @@ def train(args):
         3、训练模型，输入
     """
     batch_size = args.batch_size                    # 每次计算的batch大小
-    model = Unet(3, 1).to(device)
+    model = UNet1(3, 1).to(device)
     if args.ckpt:
         model.load_state_dict(torch.load(WORKSPACE + args.ckpt))        # 加载训练数据权重
     criterion = nn.BCELoss()                     # 损失函数
