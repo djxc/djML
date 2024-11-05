@@ -95,7 +95,7 @@ def verify(args, model=None):
                 x = x.to(device)
                 y_hat = y_hat.to(device)
                 y = model(x)      
-                miou = calculate_miou(y, y_hat)
+                miou = calculate_miou(y_hat, y)
                 miou_list.append(miou.item())               
                 pbar.set_postfix(**{'miou': np.array(miou_list).mean()})
                 pbar.update(x.shape[0])            
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     #                    help="the path of model pre-train weight file", default=None, required=False)
     args = parse.parse_args()
     args.action = "train"
-    args.batch_size = 2
+    args.batch_size = 8
     args.ckpt = None # r"D:\Data\MLData\rs_road\model\weights_unet_road_19_0.00229.pth"
     print(args.action)
     # python main.py test --ckpt weight_19.pth#
