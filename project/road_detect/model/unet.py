@@ -85,7 +85,7 @@ class Unet(nn.Module):
 
         c10 = self.conv10(c9)
         # sigmoid将值转换为概率
-        out = torch.sigmoid(c10)
+        out = nn.Sigmoid()(c10)        
         return out
     
     def forward1(self, x):
