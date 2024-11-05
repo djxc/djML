@@ -6,9 +6,9 @@
 - 4、优化方向：损失函数、数据增强、网络结构调整、误差较大数据类别分析
 - 5、数据增强：图像旋转
 - 6、可以选择使用外部数据集：
-  - 6.1 Massachusetts Roads Dataset（train_size 1108, 尺寸1500 * 1500）
+  - 6.1 * Massachusetts Roads Dataset（train_size 1108, 尺寸1500 * 1500）
   - 6.2 DeepGlobe Road Extraction Dataset
-  - 6.3 CHN6-CUG Road Dataset
+  - 6.3 * CHN6-CUG Road Dataset
   - 6.4 Aerial Image Segmentation Dataset
   - 6.5 Spacenet
   - 6.6 [遥感AI数据集](https://blog.csdn.net/nominior/article/details/105247990)

@@ -113,7 +113,7 @@ def calculate_miou(predictions: torch.tensor, targets: torch.tensor):
     # FP表示实际非道路但识别为道路的像元数，
     fp = torch.where((predictions - targets) > 0, 1, 0).sum()
     # TN表示被正确识别的非道路区域像元），
-    tn = (predictions + targets).sum()
+    tn = torch.where((predictions + targets) == 0, 1, 0).sum()
     # FN表示实际是道路但未被识别为道路的像元数
     fn = torch.where((targets - predictions) > 0, 1, 0).sum()
 
@@ -121,6 +121,21 @@ def calculate_miou(predictions: torch.tensor, targets: torch.tensor):
     mIOU = 0.5 * tp / (tp + fp + fn) + 0.5 * tn / (tn + fp + fn)
  
     return mIOU
+
+def calculate_iou(predictions: torch.tensor, targets: torch.tensor):
+    """计算平均交并比
+        iou = 相交面积/(预测面积+真实面积-相交面积)
+    """
+    predictions = predictions.reshape(-1)
+    targets = targets.view(-1)
+    pred_area = predictions.sum()
+    true_area = targets.sum()
+
+    # TP表示被正确识别为道路区域的像元数，
+    tp = (predictions * targets).sum()
+    iou = tp / ( pred_area + true_area - tp)   
+ 
+    return iou
 
 def test(args):
 
