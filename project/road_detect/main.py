@@ -94,6 +94,7 @@ def verify(args, model=None):
                 x = x.to(device)
                 y_hat = y_hat.to(device)
                 y = model(x)      
+                y = torch.where(y > 0.5, 1, 0)
                 miou = calculate_miou(y, y_hat)
                 miou_list.append(miou.item())               
                 pbar.set_postfix(**{'miou': np.array(miou_list).mean()})
