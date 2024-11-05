@@ -1,5 +1,5 @@
 import os
-WORKSPACE =  r"D:\Data\MLData\road_dataset\CHN6-CUG"
+WORKSPACE =  r"D:\Data\MLData\road_dataset\cg"
 MODEL_FOLDER = os.path.join(WORKSPACE, "model")
 
 train_folder = os.path.join(WORKSPACE, "train")

@@ -49,6 +49,7 @@ def train(args):
                              batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
     num_epochs = 100
     dataNum = len(liver_dataset)
+    # verify(None, model)
     for epoch in range(num_epochs):
         epoch_loss = 0
         step = 0
@@ -66,12 +67,10 @@ def train(args):
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
                 epoch_loss += loss.item()
-                pbar.set_postfix(**{'loss': loss.item()})
+                pbar.set_postfix(**{'loss': epoch_loss/step})
                 pbar.update(x.shape[0])              
-        loss_tmp = epoch_loss/step
-        print("epoch %d loss:%0.5f" % (epoch, loss_tmp))
         miou = verify(None, model)
-        torch.save(model.state_dict(), os.path.join(MODEL_FOLDER, 'weights_unet_road_{}_{}_{}.pth'.format(epoch, str(loss_tmp)[:7], str(miou.item())[:6])))        # 保存模型参数，使用时直接加载保存的path文件
+        torch.save(model.state_dict(), os.path.join(MODEL_FOLDER, 'weights_unet_road_{}_{}_{}.pth'.format(epoch, str(epoch_loss/step)[:7], str(miou.item())[:6])))        # 保存模型参数，使用时直接加载保存的path文件
 
 
 def verify(args, model=None):
@@ -83,7 +82,7 @@ def verify(args, model=None):
             model.load_state_dict(torch.load(args.ckpt, map_location=lambda storage, loc: storage.cuda(0)))        # 加载训练数据权重
     
     liver_dataset = RoadDataset(verify_file, train_mode="verify",
-                              transform=y_transforms, target_transform=y_transforms)    
+                              transform=y_transforms, target_transform=None)    
     dataloaders = DataLoader(liver_dataset,
                              batch_size=batch_size, shuffle=False, num_workers=1)  # 使用pytorch的数据加载函数加载数据
     model.eval()
@@ -95,7 +94,7 @@ def verify(args, model=None):
                 x = x.to(device)
                 y_hat = y_hat.to(device)
                 y = model(x)      
-                miou = calculate_miou(y_hat, y)
+                miou = calculate_miou(y, y_hat)
                 miou_list.append(miou.item())               
                 pbar.set_postfix(**{'miou': np.array(miou_list).mean()})
                 pbar.update(x.shape[0])            
@@ -178,7 +177,7 @@ if __name__ == '__main__':
     #                    help="the path of model pre-train weight file", default=None, required=False)
     args = parse.parse_args()
     args.action = "train"
-    args.batch_size = 8
+    args.batch_size = 2
     args.ckpt = None # r"D:\Data\MLData\rs_road\model\weights_unet_road_19_0.00229.pth"
     print(args.action)
     # python main.py test --ckpt weight_19.pth#

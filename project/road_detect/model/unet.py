@@ -5,6 +5,7 @@ UNet网络
 import torch
 from torch import nn
 
+
 """unet双卷积块，两次：卷积 + batchNorm + relu"""
 class DoubleConv(nn.Module):
     def __init__(self, in_ch, out_ch):
@@ -84,8 +85,8 @@ class Unet(nn.Module):
 
         c10 = self.conv10(c9)
         # sigmoid将值转换为概率
-        # out = nn.Sigmoid()(c10)
-        return c10
+        out = torch.sigmoid(c10)
+        return out
     
     def forward1(self, x):
         print("    X -> ", x.shape)
