@@ -73,9 +73,7 @@ def train(args):
                 optimizer.step()                    # 参数优化
                 epoch_loss += loss.item()
                 pbar.set_postfix(**{'loss': epoch_loss/(i + 1)})
-                pbar.update(x.shape[0])    
-                if i > 40:
-                    break          
+                pbar.update(x.shape[0])            
         miou = verify(model, verify_dataloaders, criterion)
         save_model(model, epoch, epoch_loss / (i + 1), miou)
 
@@ -110,9 +108,7 @@ def verify(model, dataloaders, criterion):
                 miou = calculate_miou(y, y_hat)
                 miou_list.append(miou.item())               
                 pbar.set_postfix(**{'miou': np.array(miou_list).mean(), 'loss': total_loss / (i + 1)})
-                pbar.update(x.shape[0])     
-                if i > 40:
-                    break                       
+                pbar.update(x.shape[0])                          
     miou = np.array(miou_list).mean()
     return miou
 
@@ -203,7 +199,7 @@ if __name__ == '__main__':
     #                    help="the path of model pre-train weight file", default=None, required=False)
     args = parse.parse_args()
     args.action = "train"
-    args.batch_size = 8
+    args.batch_size = 2
     args.ckpt = None #"weights_unet_road_11_0.22421_nan.pth"
     print(args.action)
     # verify_test(args)
