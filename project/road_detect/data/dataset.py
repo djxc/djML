@@ -37,7 +37,11 @@ class RoadDataset(Dataset):
 
         if self.transform is not None:
             img_x = self.transform(img_x)
-        img_y = torch.tensor(np.array(img_y, dtype=np.float32)).unsqueeze(0)
+
+        img_y = np.array(img_y)
+        img_y = np.where(img_y == 255, 1, 0)
+        img_y = img_y.astype(np.float32)
+        img_y = torch.tensor(img_y).unsqueeze(0)
         return img_x, img_y, x_path
 
     def __len__(self):

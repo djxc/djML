@@ -38,9 +38,9 @@ def train(args):
     batch_size = args.batch_size                    # 每次计算的batch大小
     model = UNet1(3, 1).to(device)
     if args.ckpt:
-        model.load_state_dict(torch.load(WORKSPACE + args.ckpt))        # 加载训练数据权重
+        load_model_ckpt(model, args.ckpt)       
     criterion = nn.BCELoss()                     # 损失函数
-    optimizer = optim.Adam(model.parameters(), lr=0.001)      # 优化函数
+    optimizer = optim.Adam(model.parameters(), lr=0.1)      # 优化函数
 
 
     liver_dataset = RoadDataset(train_file, train_mode=args.action,
@@ -55,14 +55,11 @@ def train(args):
     
     num_epochs = 100
     dataNum = len(liver_dataset)
-    # verify(model, verify_dataloaders)
     for epoch in range(num_epochs):
         epoch_loss = 0
-        step = 0
         model.train()
         with tqdm(total=dataNum, desc=f'Epoch {epoch + 1}/{num_epochs}', unit='img') as pbar:
-            for x, y, _ in dataloaders:
-                step += 1
+            for i, (x, y, _) in enumerate(dataloaders):
                 # 将输入的要素用gpu计算
                 inputs = x.to(device)
                 labels = y.to(device)
@@ -74,35 +71,61 @@ def train(args):
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
                 epoch_loss += loss.item()
-                pbar.set_postfix(**{'loss': epoch_loss/step})
-                pbar.update(x.shape[0])              
-<<<<<<< HEAD
-        miou = verify(None, model)
-=======
-        miou = verify(model, verify_dataloaders)
->>>>>>> c6bb10c18ecea52d24e3c885b5cfa417a36fe742
-        torch.save(model.state_dict(), os.path.join(MODEL_FOLDER, 'weights_unet_road_{}_{}_{}.pth'.format(epoch, str(epoch_loss/step)[:7], str(miou.item())[:6])))        # 保存模型参数，使用时直接加载保存的path文件
+                pbar.set_postfix(**{'loss': epoch_loss/(i + 1)})
+                pbar.update(x.shape[0])    
+                if i > 40:
+                    break          
+        miou = verify(model, verify_dataloaders, criterion)
+        save_model(model, epoch, epoch_loss / (i + 1), miou)
+
+def save_model(model, epoch, loss, miou):
+    """"""
+    model_path = os.path.join(MODEL_FOLDER, 'weights_unet_road_{}_{}_{}.pth'.format(epoch, str(loss)[:7], str(miou.item())[:6]))
+    torch.save(model.state_dict(), model_path)        # 保存模型参数，使用时直接加载保存的path文件
+
+def load_model_ckpt(model, ckpt_name):
+    """"""
+    model_path = os.path.join(MODEL_FOLDER, ckpt_name)
+    model.load_state_dict(torch.load(model_path))        # 加载训练数据权重
 
 
-def verify(model, dataloaders):
+def verify(model, dataloaders, criterion):
     """测试模型，显示模型的输出结果"""
     model.eval()
     miou_list = []
     dataNum = len(dataloaders)
+    total_loss = 0
     with torch.no_grad():
         with tqdm(total=dataNum, desc=f'verify', unit='img') as pbar:
-            for x, y_hat, x_path in dataloaders:
+            for i, (x, y_hat, x_path) in enumerate(dataloaders):
                 x = x.to(device)
                 y_hat = y_hat.to(device)
-                y = model(x)      
-                y = torch.where(y > 0.5, 1, 0)
+                y = model(x)    
+                # print(y.max(), y.min(), y_hat.max(), y_hat.min())
+                y = torch.where(y > 0.1, 1, 0).float()
+                
+                loss = criterion(y, y_hat) 
+                total_loss += loss.item()
                 miou = calculate_miou(y, y_hat)
                 miou_list.append(miou.item())               
-                pbar.set_postfix(**{'miou': np.array(miou_list).mean()})
-                pbar.update(x.shape[0])            
+                pbar.set_postfix(**{'miou': np.array(miou_list).mean(), 'loss': total_loss / (i + 1)})
+                pbar.update(x.shape[0])     
+                if i > 20:
+                    break                       
     miou = np.array(miou_list).mean()
-    print("miou: ", miou)
     return miou
+
+def verify_test(args):
+    """"""
+    model = UNet1(3, 1).to(device)
+    criterion = nn.BCELoss() 
+    load_model_ckpt(model, args.ckpt)
+
+    verify_liver_dataset = RoadDataset(verify_file, train_mode="verify",
+                              transform=y_transforms, target_transform=None)    
+    verify_dataloaders = DataLoader(verify_liver_dataset,
+                             batch_size=1, shuffle=False, num_workers=1)  # 使用pytorch的数据加载函数加载数据
+    verify(model, verify_dataloaders, criterion)
 
 def calculate_miou(predictions: torch.tensor, targets: torch.tensor):
     """计算平均交并比"""
@@ -119,7 +142,7 @@ def calculate_miou(predictions: torch.tensor, targets: torch.tensor):
     fn = torch.where((targets - predictions) > 0, 1, 0).sum()
 
     # mIOU=0.5×TP/(TP+FP+FN)+0.5×TN/(TN+FP+FN), 
-    mIOU = 0.5 * tp / (tp + fp + fn) + 0.5 * tn / (tn + fp + fn)
+    mIOU = 0.5 * tp / (tp + fp + fn + 1e-10) + 0.5 * tn / (tn + fp + fn + 1e-10)
  
     return mIOU
 
@@ -179,9 +202,10 @@ if __name__ == '__main__':
     #                    help="the path of model pre-train weight file", default=None, required=False)
     args = parse.parse_args()
     args.action = "train"
-    args.batch_size = 2
-    args.ckpt = None # r"D:\Data\MLData\rs_road\model\weights_unet_road_19_0.00229.pth"
+    args.batch_size = 8
+    args.ckpt = None #"weights_unet_road_11_0.22421_nan.pth"
     print(args.action)
+    # verify_test(args)
     # python main.py test --ckpt weight_19.pth#
     if args.action == "train":
         train(args)
