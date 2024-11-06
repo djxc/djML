@@ -66,12 +66,10 @@ def train(args):
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
                 epoch_loss += loss.item()
-                pbar.set_postfix(**{'loss': loss.item()})
+                pbar.set_postfix(**{'loss': epoch_loss/step})
                 pbar.update(x.shape[0])              
-        loss_tmp = epoch_loss/step
-        print("epoch %d loss:%0.5f" % (epoch, loss_tmp))
         miou = verify(None, model)
-        torch.save(model.state_dict(), os.path.join(MODEL_FOLDER, 'weights_unet_road_{}_{}_{}.pth'.format(epoch, str(loss_tmp)[:7], str(miou.item())[:6])))        # 保存模型参数，使用时直接加载保存的path文件
+        torch.save(model.state_dict(), os.path.join(MODEL_FOLDER, 'weights_unet_road_{}_{}_{}.pth'.format(epoch, str(epoch_loss/step)[:7], str(miou.item())[:6])))        # 保存模型参数，使用时直接加载保存的path文件
 
 
 def verify(args, model=None):
