@@ -25,6 +25,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 x_transforms = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    # mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 # mask只需要转换为tensor
 y_transforms = transforms.ToTensor()
@@ -110,7 +111,7 @@ def verify(model, dataloaders, criterion):
                 miou_list.append(miou.item())               
                 pbar.set_postfix(**{'miou': np.array(miou_list).mean(), 'loss': total_loss / (i + 1)})
                 pbar.update(x.shape[0])     
-                if i > 20:
+                if i > 40:
                     break                       
     miou = np.array(miou_list).mean()
     return miou
