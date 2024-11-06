@@ -14,7 +14,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from model.unet import Unet
+from model.unet import Unet, UNet1
 from data.dataset import RoadDataset
 from config import WORKSPACE, MODEL_FOLDER, train_file, verify_file, result_folder, test_file, test_result_folder
 
@@ -36,22 +36,30 @@ def train(args):
         3、训练模型，输入
     """
     batch_size = args.batch_size                    # 每次计算的batch大小
-    model = Unet(3, 1).to(device)
+    model = UNet1(3, 1).to(device)
     if args.ckpt:
         model.load_state_dict(torch.load(WORKSPACE + args.ckpt))        # 加载训练数据权重
-    criterion = nn.BCEWithLogitsLoss()                      # 损失函数
-    optimizer = optim.Adam(model.parameters(), lr=0.01)      # 优化函数
+    criterion = nn.BCELoss()                     # 损失函数
+    optimizer = optim.Adam(model.parameters(), lr=0.001)      # 优化函数
 
 
     liver_dataset = RoadDataset(train_file, train_mode=args.action,
                               transform=x_transforms, target_transform=y_transforms)    
     dataloaders = DataLoader(liver_dataset,
                              batch_size=batch_size, shuffle=True, num_workers=4)  # 使用pytorch的数据加载函数加载数据
+    
+    verify_liver_dataset = RoadDataset(verify_file, train_mode="verify",
+                              transform=y_transforms, target_transform=None)    
+    verify_dataloaders = DataLoader(verify_liver_dataset,
+                             batch_size=1, shuffle=False, num_workers=1)  # 使用pytorch的数据加载函数加载数据
+    
     num_epochs = 100
     dataNum = len(liver_dataset)
+    # verify(model, verify_dataloaders)
     for epoch in range(num_epochs):
         epoch_loss = 0
         step = 0
+        model.train()
         with tqdm(total=dataNum, desc=f'Epoch {epoch + 1}/{num_epochs}', unit='img') as pbar:
             for x, y, _ in dataloaders:
                 step += 1
@@ -68,32 +76,27 @@ def train(args):
                 epoch_loss += loss.item()
                 pbar.set_postfix(**{'loss': epoch_loss/step})
                 pbar.update(x.shape[0])              
+<<<<<<< HEAD
         miou = verify(None, model)
+=======
+        miou = verify(model, verify_dataloaders)
+>>>>>>> c6bb10c18ecea52d24e3c885b5cfa417a36fe742
         torch.save(model.state_dict(), os.path.join(MODEL_FOLDER, 'weights_unet_road_{}_{}_{}.pth'.format(epoch, str(epoch_loss/step)[:7], str(miou.item())[:6])))        # 保存模型参数，使用时直接加载保存的path文件
 
 
-def verify(args, model=None):
+def verify(model, dataloaders):
     """测试模型，显示模型的输出结果"""
-    batch_size = 1 #args.batch_size                    # 每次计算的batch大小
-    if model is None:
-        model = Unet(3, 1)
-        if args.ckpt and os.path.exists(args.ckpt):
-            model.load_state_dict(torch.load(args.ckpt, map_location=lambda storage, loc: storage.cuda(0)))        # 加载训练数据权重
-    
-    liver_dataset = RoadDataset(verify_file, train_mode="verify",
-                              transform=y_transforms, target_transform=y_transforms)    
-    dataloaders = DataLoader(liver_dataset,
-                             batch_size=batch_size, shuffle=False, num_workers=1)  # 使用pytorch的数据加载函数加载数据
     model.eval()
     miou_list = []
-    dataNum = len(liver_dataset)
+    dataNum = len(dataloaders)
     with torch.no_grad():
         with tqdm(total=dataNum, desc=f'verify', unit='img') as pbar:
             for x, y_hat, x_path in dataloaders:
                 x = x.to(device)
                 y_hat = y_hat.to(device)
                 y = model(x)      
-                miou = calculate_miou(y_hat, y)
+                y = torch.where(y > 0.5, 1, 0)
+                miou = calculate_miou(y, y_hat)
                 miou_list.append(miou.item())               
                 pbar.set_postfix(**{'miou': np.array(miou_list).mean()})
                 pbar.update(x.shape[0])            
@@ -176,7 +179,7 @@ if __name__ == '__main__':
     #                    help="the path of model pre-train weight file", default=None, required=False)
     args = parse.parse_args()
     args.action = "train"
-    args.batch_size = 8
+    args.batch_size = 2
     args.ckpt = None # r"D:\Data\MLData\rs_road\model\weights_unet_road_19_0.00229.pth"
     print(args.action)
     # python main.py test --ckpt weight_19.pth#
