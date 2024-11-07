@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
 from model.unet import Unet, UNet1
+from dice_loss import DiceLoss
 from data.dataset import RoadDataset
 from config import WORKSPACE, MODEL_FOLDER, train_file, verify_file, result_folder, test_file, test_result_folder
 
@@ -41,7 +42,8 @@ def train(args):
     if args.ckpt:
         load_model_ckpt(model, args.ckpt)       
     criterion = nn.BCELoss()                     # 损失函数
-    optimizer = optim.Adam(model.parameters(), lr=0.1)      # 优化函数
+    criterion1 = DiceLoss()                     # 损失函数
+    optimizer = optim.Adam(model.parameters(), lr=0.01)      # 优化函数
 
 
     liver_dataset = RoadDataset(train_file, train_mode=args.action,
@@ -68,13 +70,15 @@ def train(args):
                 optimizer.zero_grad()
                 # 前向传播
                 outputs = model(inputs)
-                loss = criterion(outputs, labels)   # 损失函数
+                loss1 = criterion(outputs, labels)   # 损失函数
+                loss2 = criterion1(outputs, labels)
+                loss = loss1 + loss2
                 loss.backward()                     # 后向传播
                 optimizer.step()                    # 参数优化
                 epoch_loss += loss.item()
                 pbar.set_postfix(**{'loss': epoch_loss/(i + 1)})
                 pbar.update(x.shape[0])            
-        miou = verify(model, verify_dataloaders, criterion)
+        miou = verify(model, verify_dataloaders, criterion, criterion1)
         save_model(model, epoch, epoch_loss / (i + 1), miou)
 
 def save_model(model, epoch, loss, miou):
@@ -88,7 +92,7 @@ def load_model_ckpt(model, ckpt_name):
     model.load_state_dict(torch.load(model_path))        # 加载训练数据权重
 
 
-def verify(model, dataloaders, criterion):
+def verify(model, dataloaders, criterion, criterion1):
     """测试模型，显示模型的输出结果"""
     model.eval()
     miou_list = []
@@ -103,7 +107,9 @@ def verify(model, dataloaders, criterion):
                 # print(y.max(), y.min(), y_hat.max(), y_hat.min())
                 y = torch.where(y > 0.1, 1, 0).float()
                 
-                loss = criterion(y, y_hat) 
+                loss1 = criterion(y, y_hat)   # 损失函数
+                loss2 = criterion1(y, y_hat)
+                loss = loss1 + loss2
                 total_loss += loss.item()
                 miou = calculate_miou(y, y_hat)
                 miou_list.append(miou.item())               
@@ -200,7 +206,7 @@ if __name__ == '__main__':
     args = parse.parse_args()
     args.action = "train"
     args.batch_size = 2
-    args.ckpt = None #"weights_unet_road_11_0.22421_nan.pth"
+    args.ckpt = None #"weights_unet_road_37_0.10279_0.5177.pth"
     print(args.action)
     # verify_test(args)
     # python main.py test --ckpt weight_19.pth#

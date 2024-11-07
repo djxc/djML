@@ -21,7 +21,7 @@
 
 
 # 训练过程
-- 1、用Unet,无数据增强，学习率0.1；batch_size为2；loss为BCE。训练集loss下降平稳，但在验证集上loss震动较为剧烈。验证集miou在12轮达到0.467，loss为8.83；14轮0.483，loss为8.68
+- 1、用Unet,无数据增强，学习率0.1；batch_size为2；loss为BCE。训练集loss下降平稳，但在验证集上loss震动较为剧烈。验证集miou在12轮达到0.467，loss为8.83；14轮0.483，loss为8.68，最好效果为miou=0.522，后期miou在0.46-0.52之间回荡
 unet如果最后一层没有sigmoid，则损失函数需要用BCEWithLogitsLoss，否则使用BCELoss。再验证过程中需要将输出结果转换为0或1像素值，可以用torch.where函数,阈值需要根据具体情况进行设置。对于二分类问题需要将label设置为0或1.
 - 2、数据增强，cutout，考虑到道路连续性应该在边缘处进行cut；cutmix，将两幅图像cut一部分然后拼在一起，中间需要有纯黑条带隔开
 
